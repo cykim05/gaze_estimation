@@ -91,8 +91,24 @@ GENERALIZATION = {
 # 검증이 2명(6,000개)뿐이라 흔들릴 여지가 크다.
 SEEDS = {f"seed {s}": dict(seed=s) for s in range(6)}
 
+# 4단계. 1~3단계는 전부 seed 하나로 줄을 세웠는데, seeds 단계에서 같은 설정의
+# 실행 간 표준편차가 0.13°로 나왔다. 그 폭이 우리가 비교하던 차이와 같은 크기다.
+# 그래서 정말 알고 싶은 것만 남기고 seed를 여러 개 돌려 평균으로 비교한다.
+#   (a) 정규화가 실제로 듣는가           plain vs reg
+#   (b) 일반화 기법 중 듣는 것이 있는가   reg vs reg+adv / reg+mixup
+FINAL = {
+    "plain (1차 설정)":    dict(dropout=0.2, weight_decay=0.0, augment=False),
+    "dropout 0.5":        dict(dropout=0.5, weight_decay=0.0, augment=False),
+    "reg":                dict(dropout=0.35, weight_decay=3e-4, augment=True),
+    "reg + adv 1.0":      dict(dropout=0.35, weight_decay=3e-4, augment=True, adv=1.0),
+    "reg + mixup 0.2":    dict(dropout=0.35, weight_decay=3e-4, augment=True, mixup=0.2),
+}
+
 PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY,
-           "schedule": SCHEDULE, "generalization": GENERALIZATION, "seeds": SEEDS}
+           "schedule": SCHEDULE, "generalization": GENERALIZATION,
+           "seeds": SEEDS, "final": FINAL}
+
+SEED_SEP = " · seed "
 
 
 def pick_devices(n_jobs: int, per_gpu: int = 2, min_free_gib: float = 6.0) -> list:
@@ -138,6 +154,41 @@ def _worker(args):
             "history": r["history"], "config": {k: v for k, v in cfg.__dict__.items()}}
 
 
+def _report_with_seeds(results, n_seeds: int) -> None:
+    """같은 설정의 여러 seed를 묶어 평균±표준편차로 보고한다.
+
+    설정 사이의 차이를 **실행 간 흔들림과 같은 자에 놓고** 본다. 평균 차이가
+    흔들림보다 작으면 순위는 의미가 없다.
+    """
+    import numpy as np
+
+    groups = {}
+    for r in results:
+        name = r["name"].split(SEED_SEP)[0]
+        groups.setdefault(name, []).append(r["val"])
+
+    rows = []
+    for name, vals in groups.items():
+        v = np.array(vals)
+        rows.append((name, v.mean(), v.std(ddof=1) if len(v) > 1 else 0.0, len(v), v))
+    rows.sort(key=lambda t: t[1])
+
+    print(f"\n{'순위':<4}{'설정':<20}{'평균':>9}{'표준편차':>10}{'n':>4}   개별 값")
+    for i, (name, mu, sd, k, v) in enumerate(rows, 1):
+        print(f"{i:<4}{name:<20}{mu:>8.3f}°{sd:>9.3f}°{k:>4}   "
+              + " ".join(f"{x:.2f}" for x in sorted(v)))
+
+    best_name, best_mu, best_sd, best_k, best_v = rows[0]
+    pooled = np.sqrt(np.mean([sd ** 2 for _, _, sd, k, _ in rows if k > 1]))
+    print(f"\n실행 간 표준편차(합산) {pooled:.3f}°")
+    print(f"1위 {best_name} {best_mu:.3f}°")
+    for name, mu, sd, k, v in rows[1:]:
+        gap = mu - best_mu
+        se = np.sqrt(best_sd ** 2 / best_k + sd ** 2 / max(k, 1)) or 1e-9
+        mark = "유의" if abs(gap) > 2 * se else "구분 불가"
+        print(f"  vs {name:<20} {gap:+.3f}°  (평균 차 / 표준오차 {abs(gap) / se:4.1f}) → {mark}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--fold", default="p00", help="개발용 fold. 이 fold의 테스트는 보지 않는다")
@@ -149,6 +200,8 @@ def main() -> None:
     p.add_argument("--per-gpu", type=int, default=2, help="GPU 한 장에 동시에 올릴 후보 수")
     p.add_argument("--min-free", type=float, default=6.0, help="쓸 GPU의 최소 여유 메모리 (GiB)")
     p.add_argument("--only", nargs="*", default=[], help="이름에 이 문자열이 들어간 후보만")
+    p.add_argument("--seeds", type=int, default=1,
+                   help="후보마다 돌릴 seed 수. 2 이상이면 평균±표준편차로 비교한다")
     p.add_argument("--device", choices=["cpu", "gpu"], default="cpu")
     p.add_argument("--out", default=None)
     args = p.parse_args()
@@ -168,6 +221,11 @@ def main() -> None:
         candidates = {k: v for k, v in candidates.items()
                       if any(o in k for o in args.only)}
         print(f"후보를 {len(candidates)}개로 좁혔다: {list(candidates)}")
+
+    if args.seeds > 1:
+        candidates = {f"{name}{SEED_SEP}{s}": {**kwargs, "seed": s}
+                      for name, kwargs in candidates.items()
+                      for s in range(args.seeds)}
 
     args.out = args.out or f"results/search-{args.preset}"
     os.makedirs(args.out, exist_ok=True)
@@ -201,15 +259,20 @@ def main() -> None:
     print(f"\n{(time.perf_counter() - t0) / 60:.1f}분")
 
     results.sort(key=lambda r: r["val"])
-    print(f"\n{'순위':<4}{'설정':<26}{'검증 오차':>10}{'epoch':>7}")
-    for i, r in enumerate(results, 1):
-        print(f"{i:<4}{r['name']:<26}{r['val']:>9.3f}°{r['epoch']:>7}")
 
-    base = next((r for r in results if r["name"].strip().startswith("base")), results[-1])
-    win = results[0]
-    print(f"\n고른 설정: {win['name']}  "
-          f"(기준 {base['name']} {base['val']:.3f}° → {win['val']:.3f}°, "
-          f"{win['val'] - base['val']:+.3f}°)")
+    if args.seeds > 1:
+        _report_with_seeds(results, args.seeds)
+    else:
+        print(f"\n{'순위':<4}{'설정':<26}{'검증 오차':>10}{'epoch':>7}")
+        for i, r in enumerate(results, 1):
+            print(f"{i:<4}{r['name']:<26}{r['val']:>9.3f}°{r['epoch']:>7}")
+        base = next((r for r in results if r["name"].strip().startswith("base")), results[-1])
+        win = results[0]
+        print(f"\n고른 설정: {win['name']}  "
+              f"(기준 {base['name']} {base['val']:.3f}° → {win['val']:.3f}°, "
+              f"{win['val'] - base['val']:+.3f}°)")
+        print("\n주의: seed 하나로 잰 값이다. 같은 설정의 실행 간 표준편차가 0.13° 수준이라")
+        print("      이보다 작은 차이는 읽으면 안 된다. --seeds 로 여러 번 돌려 평균을 본다.")
 
     path = os.path.join(args.out, "search.json")
     with open(path, "w", encoding="utf-8") as f:

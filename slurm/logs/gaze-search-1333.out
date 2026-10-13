@@ -4,3 +4,18 @@ GPU 여유: 0=36.8GiB, 1=6.0GiB (제외), 2=44.0GiB, 3=26.2GiB
 개발용 fold p00 · 후보 4개 · 20 epoch · worker 4개 · 쓰는 GPU [0, 2]
 테스트 오차는 계산하지 않는다 (track_test=False)
 
+  GN + EMA 0.99            검증 5.446°  (epoch  2, 학습 손실 0.2821, 2.7분, gpu2)
+  GN + EMA + mixup 0.2     검증 5.416°  (epoch  2, 학습 손실 0.2917, 2.7분, gpu2)
+  GroupNorm                검증 5.409°  (epoch  8, 학습 손실 0.1233, 4.3분, gpu0)
+  EMA 0.999                검증 5.092°  (epoch  9, 학습 손실 0.0814, 5.5분, gpu0)
+
+5.5분
+
+순위  설정                             검증 오차  epoch
+1   EMA 0.999                     5.092°      9
+2   GroupNorm                     5.409°      8
+3   GN + EMA + mixup 0.2          5.416°      2
+4   GN + EMA 0.99                 5.446°      2
+
+고른 설정: EMA 0.999  (기준 GN + EMA 0.99 5.446° → 5.092°, -0.354°)
+→ results/search-generalization/search.json

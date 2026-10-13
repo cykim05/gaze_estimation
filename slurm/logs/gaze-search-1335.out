@@ -1,0 +1,6 @@
+노드 hai-iclr · GPU 0,1,2,3 · 작업 1335
+GPU 여유: 0=35.9GiB, 1=6.0GiB (제외), 2=44.0GiB, 3=26.2GiB
+동시 실행 가능 6개 < 후보 20개 — 나눠서 돈다.
+개발용 fold p00 · 후보 20개 · 20 epoch · worker 6개 · 쓰는 GPU [0, 2, 3]
+테스트 오차는 계산하지 않는다 (track_test=False)
+
