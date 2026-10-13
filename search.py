@@ -86,8 +86,42 @@ GENERALIZATION = {
     "GN + EMA + DRO":       dict(norm="group", ema=0.99, dro=0.01),
 }
 
+# 측정 오차를 모르면 순위표를 읽을 수 없다. 같은 설정을 seed만 바꿔 돌려
+# 검증 오차가 실행마다 얼마나 흔들리는지 잰다. 이 폭보다 작은 차이는 신호가 아니다.
+# 검증이 2명(6,000개)뿐이라 흔들릴 여지가 크다.
+SEEDS = {f"seed {s}": dict(seed=s) for s in range(6)}
+
 PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY,
-           "schedule": SCHEDULE, "generalization": GENERALIZATION}
+           "schedule": SCHEDULE, "generalization": GENERALIZATION, "seeds": SEEDS}
+
+
+def pick_devices(n_jobs: int, per_gpu: int = 2, min_free_gib: float = 6.0) -> list:
+    """후보를 GPU에 나눠 준다. **여유 메모리를 보고** 고른다.
+
+    라운드로빈으로 돌렸다가 작업이 OOM으로 죽었다. SLURM이 할당해 준 GPU라도
+    노드를 다른 사용자와 나눠 쓰면 한 장이 거의 꽉 차 있을 수 있다. 할당받은
+    장 수만 세지 말고 실제로 비어 있는지를 봐야 한다.
+    """
+    from common.backend import on_gpu, xp
+
+    if not on_gpu():
+        return [None] * n_jobs
+
+    free = []
+    for i in range(xp.cuda.runtime.getDeviceCount()):
+        with xp.cuda.Device(i):
+            free.append(xp.cuda.runtime.memGetInfo()[0] / 2**30)
+
+    usable = [i for i, g in enumerate(free) if g >= min_free_gib]
+    print("GPU 여유: " + ", ".join(f"{i}={g:.1f}GiB{'' if g >= min_free_gib else ' (제외)'}"
+                                   for i, g in enumerate(free)))
+    if not usable:
+        raise SystemExit(f"여유 {min_free_gib}GiB 이상인 GPU가 없다.")
+
+    slots = [d for d in usable for _ in range(per_gpu)]
+    if len(slots) < n_jobs:
+        print(f"동시 실행 가능 {len(slots)}개 < 후보 {n_jobs}개 — 나눠서 돈다.")
+    return [slots[i % len(slots)] for i in range(n_jobs)]
 
 
 def _worker(args):
@@ -111,7 +145,10 @@ def main() -> None:
     p.add_argument("--preset", choices=sorted(PRESETS), default="regularization")
     p.add_argument("--reg", nargs="*", default=[],
                    help="capacity 단계에서 고정할 정규화 설정, 예: dropout=0.5 weight_decay=1e-4 augment=1")
-    p.add_argument("--jobs", type=int, default=0, help="0이면 후보 수만큼 한꺼번에 (GPU는 1 권장)")
+    p.add_argument("--jobs", type=int, default=0, help="0이면 쓸 수 있는 GPU 자리 수만큼")
+    p.add_argument("--per-gpu", type=int, default=2, help="GPU 한 장에 동시에 올릴 후보 수")
+    p.add_argument("--min-free", type=float, default=6.0, help="쓸 GPU의 최소 여유 메모리 (GiB)")
+    p.add_argument("--only", nargs="*", default=[], help="이름에 이 문자열이 들어간 후보만")
     p.add_argument("--device", choices=["cpu", "gpu"], default="cpu")
     p.add_argument("--out", default=None)
     args = p.parse_args()
@@ -127,24 +164,31 @@ def main() -> None:
         candidates = {name: {**kwargs, **fixed} for name, kwargs in candidates.items()}
         print(f"모든 후보에 고정한 설정: {fixed}")
 
+    if args.only:
+        candidates = {k: v for k, v in candidates.items()
+                      if any(o in k for o in args.only)}
+        print(f"후보를 {len(candidates)}개로 좁혔다: {list(candidates)}")
+
     args.out = args.out or f"results/search-{args.preset}"
     os.makedirs(args.out, exist_ok=True)
+
     def slug(name: str) -> str:
         return re.sub(r"[^0-9a-zA-Z.]+", "-", name).strip("-")
 
-    from common.backend import describe, on_gpu, xp
-    n_gpu = xp.cuda.runtime.getDeviceCount() if on_gpu() else 0
+    from common.backend import describe
+    devices = pick_devices(len(candidates), args.per_gpu, args.min_free)
 
     # 후보가 epochs를 직접 정하면(schedule 단계) 그쪽을 쓴다
     jobs = [(name, Config(**{"epochs": args.epochs, **kwargs}), args.fold,
-             os.path.join(args.out, slug(name)), (i % n_gpu) if n_gpu else None)
-            for i, (name, kwargs) in enumerate(candidates.items())]
+             os.path.join(args.out, slug(name)), dev)
+            for (name, kwargs), dev in zip(candidates.items(), devices)]
 
-    workers = args.jobs or len(jobs)
+    workers = args.jobs or min(len(jobs), len({d for d in devices if d is not None})
+                               * args.per_gpu or len(jobs))
     budgets = sorted({j[1].epochs for j in jobs})
     print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · "
-          f"{'/'.join(map(str, budgets))} epoch · worker {workers}개 · GPU {n_gpu}장")
-    print(f"  {describe()}")
+          f"{'/'.join(map(str, budgets))} epoch · worker {workers}개 · "
+          f"쓰는 GPU {sorted({d for d in devices if d is not None})}")
     print("테스트 오차는 계산하지 않는다 (track_test=False)\n")
 
     t0 = time.perf_counter()

@@ -1,0 +1,6 @@
+노드 hai-iclr · GPU 0,1,2,3 · 작업 1333
+후보를 4개로 좁혔다: ['GroupNorm', 'EMA 0.999', 'GN + EMA 0.99', 'GN + EMA + mixup 0.2']
+GPU 여유: 0=36.8GiB, 1=6.0GiB (제외), 2=44.0GiB, 3=26.2GiB
+개발용 fold p00 · 후보 4개 · 20 epoch · worker 4개 · 쓰는 GPU [0, 2]
+테스트 오차는 계산하지 않는다 (track_test=False)
+
