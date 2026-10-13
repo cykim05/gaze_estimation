@@ -12,9 +12,13 @@ from common.layers import (
     BatchNormalization,
     Convolution,
     Dropout,
+    GradientReversal,
+    GroupNormalization,
     MeanSquaredError,
     Pooling,
     Relu,
+    SoftmaxWithLoss,
+    WeightedMeanSquaredError,
 )
 
 RNG = np.random.default_rng(0)
@@ -70,7 +74,7 @@ def check(name, layer, x, params=(), train_flg=None, tol=1e-5):
 
 
 def main():
-    layers.DTYPE = np.float64  # BatchNormalization 파라미터 생성에 쓰인다
+    layers.DTYPE = np.float64  # 정규화 계층 파라미터 생성에 쓰인다
 
     print("=== 계층별 수치 기울기 검증 (float64) ===")
 
@@ -100,6 +104,51 @@ def main():
     bn4.beta = RNG.standard_normal(2)
     check("BatchNorm 4D", bn4, RNG.standard_normal((5, 2, 3, 4)),
           params=("gamma", "beta"), train_flg=True, tol=1e-4)
+
+    gn4 = GroupNormalization(6, groups=3)
+    gn4.gamma = RNG.standard_normal(6)
+    gn4.beta = RNG.standard_normal(6)
+    check("GroupNorm 4D", gn4, RNG.standard_normal((4, 6, 5, 7)),
+          params=("gamma", "beta"), train_flg=True, tol=1e-4)
+
+    # 그룹당 원소가 2개뿐이면 std가 |a-b|/2라 xn이 ±1로 고정되고 수치 미분이
+    # 무너진다. 모델이 실제로 쓰는 크기(fc 256채널을 8그룹 = 그룹당 32개)에 맞춘다.
+    gn2 = GroupNormalization(16, groups=2)
+    gn2.gamma = RNG.standard_normal(16)
+    gn2.beta = RNG.standard_normal(16)
+    check("GroupNorm 2D", gn2, RNG.standard_normal((5, 16)),
+          params=("gamma", "beta"), train_flg=True, tol=1e-4)
+
+    # GradientReversal: 순전파 항등, 역전파 부호 반전
+    grl = GradientReversal(scale=0.7)
+    v = RNG.standard_normal((3, 4))
+    g = RNG.standard_normal((3, 4))
+    ok = np.array_equal(grl.forward(v), v) and np.allclose(grl.backward(g), -0.7 * g)
+    print(f"[{'ok ' if ok else 'FAIL'}] {'GradientReversal':<22} 순전파 항등, 역전파 ×(-0.7)")
+    assert ok
+
+    # SoftmaxWithLoss: 교차 엔트로피 기울기
+    logits = RNG.standard_normal((6, 4))
+    labels = RNG.integers(0, 4, 6)
+    sm = SoftmaxWithLoss()
+    sm.forward(logits, labels)
+    g_an = sm.backward()
+    g_num = numerical_grad(lambda: sm.forward(logits, labels), logits)
+    e = rel_err(g_an, g_num)
+    print(f"[{'ok ' if e < 1e-6 else 'FAIL'}] {'SoftmaxWithLoss':<22} dx={e:.2e}")
+    assert e < 1e-6
+
+    # WeightedMeanSquaredError: 가중치가 있을 때와 없을 때 모두
+    yv, tv = RNG.standard_normal((5, 2)), RNG.standard_normal((5, 2))
+    wv = np.abs(RNG.standard_normal(5)); wv /= wv.sum()
+    for name, w in (("가중치 없음", None), ("가중치 있음", wv)):
+        wm = WeightedMeanSquaredError()
+        wm.forward(yv, tv, w)
+        g_an = wm.backward()
+        g_num = numerical_grad(lambda: wm.forward(yv, tv, w), yv)
+        e = rel_err(g_an, g_num)
+        print(f"[{'ok ' if e < 1e-6 else 'FAIL'}] {'WeightedMSE(' + name + ')':<22} dy={e:.2e}")
+        assert e < 1e-6
 
     # MeanSquaredError: 손실이 스칼라라 위 틀과 모양이 달라 따로 본다
     y = RNG.standard_normal((5, 2))

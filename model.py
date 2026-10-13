@@ -26,10 +26,15 @@ from common.layers import (
     BatchNormalization,
     Convolution,
     Dropout,
-    MeanSquaredError,
+    GradientReversal,
+    GroupNormalization,
     Pooling,
     Relu,
+    SoftmaxWithLoss,
+    WeightedMeanSquaredError,
 )
+
+NORMS = {"batch": BatchNormalization, "group": GroupNormalization}
 
 DTYPE = np.float32
 EYE_SHAPE = (1, 36, 60)
@@ -48,9 +53,12 @@ def he_normal(shape, fan_in, rng):
 
 class GazeNet:
     def __init__(self, conv_channels=(24, 48, 96), hidden=256, joint=96,
-                 dropout=0.2, input_shape=EYE_SHAPE, seed=None):
+                 dropout=0.2, input_shape=EYE_SHAPE, norm="batch",
+                 n_persons=0, adv_scale=1.0, adv_hidden=64, seed=None):
         rng = numpy.random.default_rng(seed)   # 초깃값은 장치와 무관해야 한다
         c_in, h, w = input_shape
+        Norm = NORMS[norm]
+        self.norm_name = norm
 
         self.image_layers: list = []
         self._named: list[tuple[str, object]] = []
@@ -59,15 +67,15 @@ class GazeNet:
             # 뒤에 BN이 오므로 편향을 두지 않는다. BN의 beta가 같은 일을 한다.
             W = he_normal((c_out, c_in, 3, 3), c_in * 9, rng)
             conv = Convolution(W, stride=1, pad=1)
-            bn = BatchNormalization(c_out)
+            bn = Norm(c_out)
             self._add(f"conv{i}", conv)
             self._add(f"bn{i}", bn)
             self.image_layers += [conv, bn, Relu(), Pooling(2, 2)]
             c_in, h, w = c_out, h // 2, w // 2
 
         flat = c_in * h * w
-        fc = Affine(he_normal((flat, hidden), flat, rng))   # 뒤가 BN이라 편향 없음
-        bn_fc = BatchNormalization(hidden)
+        fc = Affine(he_normal((flat, hidden), flat, rng))   # 뒤가 정규화라 편향 없음
+        bn_fc = Norm(hidden)
         self._add("fc", fc)
         self._add("bn_fc", bn_fc)
         # 가중치 초깃값과 다른 흐름을 쓰도록 seed를 갈라 준다
@@ -83,7 +91,22 @@ class GazeNet:
         self._add("out", out)
         self.joint_layers = [fuse, Relu(), out]
 
-        self.last_layer = MeanSquaredError()
+        # 사람 분류 head (domain-adversarial). GradientReversal이 맨 앞에 있어
+        # 특징 추출기로 가는 기울기의 부호가 뒤집힌다. 분류기는 사람을 맞히려 하고
+        # 특징 추출기는 못 맞히게 밀려, 특징에서 사람 정체성이 빠진다.
+        self.person_layers: list = []
+        self.person_loss = None
+        if n_persons:
+            pw1 = Affine(he_normal((hidden, adv_hidden), hidden, rng),
+                         np.zeros(adv_hidden, dtype=DTYPE))
+            pw2 = Affine(he_normal((adv_hidden, n_persons), adv_hidden, rng),
+                         np.zeros(n_persons, dtype=DTYPE))
+            self._add("adv1", pw1)
+            self._add("adv2", pw2)
+            self.person_layers = [GradientReversal(adv_scale), pw1, Relu(), pw2]
+            self.person_loss = SoftmaxWithLoss()
+
+        self.last_layer = WeightedMeanSquaredError()
         self.feature_dim = hidden
         self.params = {f"{name}.{k}": v
                        for name, layer in self._named for k, v in layer.params.items()}
@@ -94,7 +117,7 @@ class GazeNet:
     @staticmethod
     def _forward(layers, x, train_flg):
         for layer in layers:
-            if isinstance(layer, (BatchNormalization, Dropout)):
+            if isinstance(layer, (BatchNormalization, GroupNormalization, Dropout)):
                 x = layer.forward(x, train_flg)
             else:
                 x = layer.forward(x)
@@ -106,21 +129,34 @@ class GazeNet:
             dout = layer.backward(dout)
         return dout
 
-    def predict(self, image: np.ndarray, head: np.ndarray, train_flg=False) -> np.ndarray:
-        feature = self._forward(self.image_layers, image, train_flg)
-        fused = np.concatenate([feature, head], axis=1)
+    def predict(self, image, head, train_flg=False):
+        self._feature = self._forward(self.image_layers, image, train_flg)
+        fused = np.concatenate([self._feature, head], axis=1)
         return self._forward(self.joint_layers, fused, train_flg)
 
-    def loss(self, image, head, gaze, train_flg=True) -> float:
-        return self.last_layer.forward(self.predict(image, head, train_flg), gaze)
+    def loss(self, image, head, gaze, train_flg=True, weights=None, person=None) -> float:
+        total = self.last_layer.forward(self.predict(image, head, train_flg), gaze, weights)
+        if person is not None and self.person_loss is not None:
+            logits = self._forward(self.person_layers, self._feature, train_flg)
+            self._adv = self.person_loss.forward(logits, person)
+            total += self._adv
+        return total
 
-    def gradient(self, image, head, gaze) -> dict[str, np.ndarray]:
+    def per_sample_loss(self):
+        """GroupDRO가 사람별 손실을 모을 때 쓴다. loss() 직후에만 유효하다."""
+        return self.last_layer.per_sample()
+
+    def gradient(self, image, head, gaze, weights=None, person=None):
         """순전파 → 역전파 한 번. 파라미터 기울기를 params와 같은 키로 돌려준다."""
-        self.loss(image, head, gaze, train_flg=True)
+        self.loss(image, head, gaze, train_flg=True, weights=weights, person=person)
 
         dout = self._backward(self.joint_layers, self.last_layer.backward())
         # 이어 붙인 자리를 되돌린다. head pose는 입력이라 기울기를 버린다.
-        self._backward(self.image_layers, dout[:, :self.feature_dim])
+        dfeature = dout[:, :self.feature_dim]
+        if person is not None and self.person_loss is not None:
+            dfeature = dfeature + self._backward(self.person_layers,
+                                                 self.person_loss.backward())
+        self._backward(self.image_layers, dfeature)
 
         return {f"{name}.{k}": v
                 for name, layer in self._named for k, v in layer.grads.items()}
@@ -131,7 +167,7 @@ class GazeNet:
         """항상 CPU(numpy) 배열로 돌려준다. 저장과 비교는 장치와 무관해야 한다."""
         state = {k: to_cpu(v) for k, v in self.params.items()}
         for name, layer in self._named:
-            if isinstance(layer, BatchNormalization):
+            if isinstance(layer, BatchNormalization):   # GN은 들고 다닐 상태가 없다
                 state.update({f"{name}.{k}": to_cpu(v) for k, v in layer.state.items()})
         return state
 

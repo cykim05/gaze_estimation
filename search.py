@@ -61,15 +61,45 @@ SCHEDULE = {
     for e in (10, 20, 40) for lr in (1e-3, 2e-3, 4e-3)
 }
 
-PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY, "schedule": SCHEDULE}
+# 3단계. 여기까지의 진단은 "용량도 최적화도 아니고 사람 간 일반화가 병목"이다.
+# 그 병목을 직접 겨냥하는 기법만 모았다. 전부 교재 계층 규약으로 직접 구현했고
+# 수치 미분으로 검증했다(tests/test_layers.py, tests/test_model.py).
+# 추론 경로는 그대로 이미지 + head pose뿐이고, 사람 라벨은 학습용 12명에게만 쓴다.
+#
+# mixup은 사람 라벨을 섞어 버리므로 adv·dro와 같이 쓸 수 없다. 조합에서 뺐다.
+GENERALIZATION = {
+    "없음 (기준)":           dict(),
+    "GroupNorm":            dict(norm="group"),
+    "mixup 0.2":            dict(mixup=0.2),
+    "mixup 0.4":            dict(mixup=0.4),
+    "EMA 0.99":             dict(ema=0.99),
+    "EMA 0.999":            dict(ema=0.999),
+    "adv 0.3":              dict(adv=0.3),
+    "adv 1.0":              dict(adv=1.0),
+    "GroupDRO 0.01":        dict(dro=0.01),
+    "GN + EMA 0.99":        dict(norm="group", ema=0.99),
+    "GN + mixup 0.2":       dict(norm="group", mixup=0.2),
+    "GN + adv 0.3":         dict(norm="group", adv=0.3),
+    "EMA 0.99 + mixup 0.2": dict(ema=0.99, mixup=0.2),
+    "GN + EMA + mixup 0.2": dict(norm="group", ema=0.99, mixup=0.2),
+    "GN + EMA + adv 0.3":   dict(norm="group", ema=0.99, adv=0.3),
+    "GN + EMA + DRO":       dict(norm="group", ema=0.99, dro=0.01),
+}
+
+PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY,
+           "schedule": SCHEDULE, "generalization": GENERALIZATION}
 
 
 def _worker(args):
-    name, cfg, person, log_dir = args
+    name, cfg, person, log_dir, device_id = args
+    if device_id is not None:
+        from common.backend import xp
+        xp.cuda.Device(device_id).use()   # GPU 여러 장에 후보를 나눠 건다
     r = train_fold(cfg, person, log_dir=log_dir, track_test=False, verbose=False)
     best = min(r["history"], key=lambda h: h["val"])
-    print(f"  {name:<30} 검증 {best['val']:.3f}°  (epoch {best['epoch']}, "
-          f"학습 손실 {best['loss']:.4f}, {r['seconds'] / 60:.1f}분)", flush=True)
+    print(f"  {name:<24} 검증 {best['val']:.3f}°  (epoch {best['epoch']:>2}, "
+          f"학습 손실 {best['loss']:.4f}, {r['seconds'] / 60:.1f}분"
+          + (f", gpu{device_id})" if device_id is not None else ")"), flush=True)
     return {"name": name, "val": best["val"], "epoch": best["epoch"],
             "history": r["history"], "config": {k: v for k, v in cfg.__dict__.items()}}
 
@@ -102,16 +132,19 @@ def main() -> None:
     def slug(name: str) -> str:
         return re.sub(r"[^0-9a-zA-Z.]+", "-", name).strip("-")
 
+    from common.backend import describe, on_gpu, xp
+    n_gpu = xp.cuda.runtime.getDeviceCount() if on_gpu() else 0
+
     # 후보가 epochs를 직접 정하면(schedule 단계) 그쪽을 쓴다
     jobs = [(name, Config(**{"epochs": args.epochs, **kwargs}), args.fold,
-             os.path.join(args.out, slug(name)))
-            for name, kwargs in candidates.items()]
+             os.path.join(args.out, slug(name)), (i % n_gpu) if n_gpu else None)
+            for i, (name, kwargs) in enumerate(candidates.items())]
 
-    from common.backend import describe
     workers = args.jobs or len(jobs)
     budgets = sorted({j[1].epochs for j in jobs})
     print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · "
-          f"{'/'.join(map(str, budgets))} epoch · worker {workers}개 · {describe()}")
+          f"{'/'.join(map(str, budgets))} epoch · worker {workers}개 · GPU {n_gpu}장")
+    print(f"  {describe()}")
     print("테스트 오차는 계산하지 않는다 (track_test=False)\n")
 
     t0 = time.perf_counter()
@@ -124,9 +157,9 @@ def main() -> None:
     print(f"\n{(time.perf_counter() - t0) / 60:.1f}분")
 
     results.sort(key=lambda r: r["val"])
-    print(f"\n{'순위':<4}{'설정':<32}{'검증 오차':>10}{'epoch':>7}")
+    print(f"\n{'순위':<4}{'설정':<26}{'검증 오차':>10}{'epoch':>7}")
     for i, r in enumerate(results, 1):
-        print(f"{i:<4}{r['name']:<32}{r['val']:>9.3f}°{r['epoch']:>7}")
+        print(f"{i:<4}{r['name']:<26}{r['val']:>9.3f}°{r['epoch']:>7}")
 
     base = next((r for r in results if r["name"].strip().startswith("base")), results[-1])
     win = results[0]

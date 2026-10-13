@@ -3,3 +3,9 @@
 개발용 fold p00 · 후보 9개 · 10/20/40 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 8.9/44.4 GiB)
 테스트 오차는 계산하지 않는다 (track_test=False)
 
+  10 epoch · lr 0.001            검증 5.161°  (epoch 2, 학습 손실 0.3199, 3.2분)
+  10 epoch · lr 0.002            검증 5.095°  (epoch 8, 학습 손실 0.1808, 3.1분)
+  10 epoch · lr 0.004            검증 5.129°  (epoch 2, 학습 손실 0.3053, 3.1분)
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** JOB 1331 ON hai-iclr CANCELLED AT 2026-10-13T17:18:56 ***
+slurmstepd: error: *** STEP 1331.0 ON hai-iclr CANCELLED AT 2026-10-13T17:18:56 ***

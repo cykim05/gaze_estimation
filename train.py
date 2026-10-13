@@ -44,6 +44,8 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+from common.backend import to_cpu, to_device
+
 
 @dataclass
 class Config:
@@ -54,6 +56,11 @@ class Config:
     dropout: float = 0.2
     weight_decay: float = 0.0      # 가중치 행렬에만. bias·BN 파라미터는 건드리지 않는다
     augment: bool = False
+    norm: str = "batch"            # batch | group
+    mixup: float = 0.0             # Beta(a, a)의 a. 0이면 끈다
+    ema: float = 0.0               # 가중치 EMA 감쇠. 0이면 끈다
+    adv: float = 0.0               # domain-adversarial 세기 (GRL scale). 0이면 끈다
+    dro: float = 0.0               # GroupDRO 학습률. 0이면 평균 손실
     conv_channels: tuple = (24, 48, 96)
     hidden: int = 256
     joint: int = 96
@@ -90,6 +97,89 @@ def split_persons(test: str, n_val: int, persons) -> tuple[list[str], list[str]]
 
 def cosine_lr(step: int, total: int, lr: float, final_ratio: float) -> float:
     return lr * (final_ratio + (1 - final_ratio) * 0.5 * (1 + np.cos(np.pi * step / total)))
+
+
+class _nullcontext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *exc):
+        return False
+
+
+def mixup(rng, alpha, image, head, gaze):
+    """배치를 섞어 사람 사이를 선형으로 잇게 만든다 (Zhang et al. 2018).
+
+    gaze는 연속값이라 라벨도 그대로 선형 결합하면 된다. 분류에서처럼 손실을
+    둘로 나눌 필요가 없다. 서로 다른 사람의 눈을 섞은 입력에 그 중간 gaze를
+    요구하므로, 사람별로 따로 외우는 해를 막는 쪽으로 밀린다.
+    """
+    lam = float(rng.beta(alpha, alpha))
+    perm = to_device(rng.permutation(len(gaze)))
+    mix = lambda a: lam * a + (1.0 - lam) * a[perm]
+    return mix(image), mix(head), mix(gaze), lam
+
+
+class WeightEMA:
+    """가중치의 지수이동평균. 평평한 해 쪽으로 평균 내 분포 이동에 덜 민감해진다.
+
+    Polyak 평균의 한 형태다. 학습 자체는 건드리지 않고 사본만 따로 굴리다가,
+    평가할 때 잠깐 바꿔 끼운다.
+    """
+
+    def __init__(self, params, decay=0.999):
+        self.decay = decay
+        self.shadow = {k: v.copy() for k, v in params.items()}
+
+    def update(self, params):
+        for key, value in params.items():
+            self.shadow[key] *= self.decay
+            self.shadow[key] += (1.0 - self.decay) * value
+
+    class _Swapped:
+        def __init__(self, ema, params):
+            self.ema, self.params = ema, params
+
+        def __enter__(self):
+            self.backup = {k: v.copy() for k, v in self.params.items()}
+            for key, value in self.params.items():
+                value[...] = self.ema.shadow[key]
+
+        def __exit__(self, *exc):
+            for key, value in self.params.items():
+                value[...] = self.backup[key]
+
+    def swapped(self, params):
+        """with 블록 동안만 EMA 가중치로 바꿔 끼운다."""
+        return self._Swapped(self, params)
+
+
+class GroupDRO:
+    """사람별 손실의 **최악**을 줄인다 (Sagawa et al. 2020).
+
+    LOPO가 재는 것은 처음 보는 사람 한 명에서의 오차다. 평균 손실을 줄이면 잘
+    맞는 사람에게 맞춰 평균만 좋아질 수 있다. 사람별로 손실을 모아 큰 쪽에
+    가중치를 몰아 주면, 재는 것과 줄이는 것이 가까워진다.
+    """
+
+    def __init__(self, n_groups: int, eta: float = 0.01):
+        self.q = np.ones(n_groups, dtype=np.float32) / n_groups
+        self.eta = eta
+
+    def weights(self, per_sample_loss: np.ndarray, group: np.ndarray) -> np.ndarray:
+        """샘플 가중치를 돌려주고 그룹 가중치 q를 갱신한다. 합은 1이다."""
+        counts = np.bincount(group, minlength=len(self.q)).astype(np.float32)
+        sums = np.bincount(group, weights=per_sample_loss, minlength=len(self.q))
+        present = counts > 0
+        mean = np.zeros_like(self.q)
+        mean[present] = (sums[present] / counts[present]).astype(np.float32)
+
+        self.q[present] *= np.exp(self.eta * mean[present])
+        self.q /= self.q.sum()
+
+        w = np.zeros(len(group), dtype=np.float32)
+        w[:] = self.q[group] / counts[group]
+        return w / w.sum()
 
 
 def predict_all(net, samples, norms, batch_size=512) -> np.ndarray:
@@ -149,12 +239,24 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     train, val, test = train_cpu.to_device(), val_cpu.to_device(), test_cpu.to_device()
     say(f"[{test_person}] {describe()}  학습 {len(train)} / 검증 {len(val)} / 테스트 {len(test)}")
 
+    # 사람 번호를 0..11로 다시 매긴다. 적대 head의 분류 라벨이자 GroupDRO의 그룹 키다.
+    # 학습용 12명뿐이고, 추론 경로에는 들어가지 않는다.
+    index_of = {PERSONS.index(p): i for i, p in enumerate(train_persons)}
+    group = np.array([index_of[int(p)] for p in train_cpu.person], dtype=np.int64)
+
     net = GazeNet(conv_channels=cfg.conv_channels, hidden=cfg.hidden,
-                  joint=cfg.joint, dropout=cfg.dropout, seed=cfg.seed)
+                  joint=cfg.joint, dropout=cfg.dropout, norm=cfg.norm,
+                  n_persons=len(train_persons) if cfg.adv else 0,
+                  adv_scale=cfg.adv, seed=cfg.seed)
     opt = Adam(lr=cfg.lr)
     augment = Augment(seed=cfg.seed + 2) if cfg.augment else None
     batches = Batches(train, cfg.batch_size, image_norm, head_std, gaze_std,
-                      shuffle=True, drop_last=True, augment=augment, seed=cfg.seed)
+                      shuffle=True, drop_last=True, augment=augment,
+                      group=group, seed=cfg.seed)
+
+    rng = np.random.default_rng(cfg.seed + 3)
+    ema = WeightEMA(net.params, cfg.ema) if cfg.ema else None
+    dro = GroupDRO(len(train_persons), cfg.dro) if cfg.dro else None
 
     total_steps = cfg.epochs * len(batches)
     history, best = [], {"val": np.inf, "epoch": -1, "state": None}
@@ -162,26 +264,47 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
 
     for epoch in range(1, cfg.epochs + 1):
         running, n_batch = 0.0, 0
-        for image, head, gaze in batches:
+        for image, head, gaze, person in batches:
             opt.lr = cosine_lr(step, total_steps, cfg.lr, cfg.lr_final_ratio)
-            running += net.loss(image, head, gaze, train_flg=True)
-            opt.update(net.params, net.gradient(image, head, gaze))
+
+            if cfg.mixup:
+                # 섞고 나면 사람 라벨이 둘의 혼합이라 적대 head·GroupDRO와 같이 쓰지 않는다
+                image, head, gaze, _ = mixup(rng, cfg.mixup, image, head, gaze)
+                person = None
+
+            weights = None
+            if dro is not None and person is not None:
+                net.loss(image, head, gaze, train_flg=True)   # 사람별 손실을 먼저 본다
+                weights = to_device(dro.weights(to_cpu(net.per_sample_loss()), person))
+
+            adv_person = to_device(person) if (cfg.adv and person is not None) else None
+            running += net.loss(image, head, gaze, train_flg=True,
+                                weights=weights, person=adv_person)
+            opt.update(net.params, net.gradient(image, head, gaze,
+                                                weights=weights, person=adv_person))
             apply_weight_decay(net.params, opt.lr, cfg.weight_decay)
+            if ema is not None:
+                ema.update(net.params)
             step += 1
             n_batch += 1
 
         synchronize()
-        val_err = mean_angular_error(predict_all(net, val, norms), val_cpu.gaze)
-        # track_test=False면 테스트를 아예 계산하지 않는다. 설정을 고르는 동안
-        # 테스트 숫자가 눈에 띄는 일 자체를 막는다.
-        test_err = mean_angular_error(predict_all(net, test, norms), test_cpu.gaze) \
-            if track_test else float("nan")
+        # EMA를 쓰면 평가도 EMA 가중치로 한다. 그래야 고른 epoch와 쓰는 가중치가 같다.
+        swap = ema.swapped(net.params) if ema is not None else _nullcontext()
+        with swap:
+            val_err = mean_angular_error(predict_all(net, val, norms), val_cpu.gaze)
+            # track_test=False면 테스트를 아예 계산하지 않는다. 설정을 고르는 동안
+            # 테스트 숫자가 눈에 띄는 일 자체를 막는다.
+            test_err = mean_angular_error(predict_all(net, test, norms), test_cpu.gaze) \
+                if track_test else float("nan")
         history.append({"epoch": epoch, "loss": running / n_batch,
                         "val": val_err, "test": test_err})
 
         if val_err < best["val"]:
-            best = {"val": val_err, "epoch": epoch, "state": net.state_dict()}
-            best["state"] = {k: v.copy() for k, v in best["state"].items()}
+            with (ema.swapped(net.params) if ema is not None else _nullcontext()):
+                state = net.state_dict()
+            best = {"val": val_err, "epoch": epoch,
+                    "state": {k: v.copy() for k, v in state.items()}}
 
         say(f"[{test_person}] epoch {epoch:>2}/{cfg.epochs}  "
             f"loss {running / n_batch:.4f}  val {val_err:.3f}°  "
@@ -314,6 +437,11 @@ def main() -> None:
     p.add_argument("--dropout", type=float, default=Config.dropout)
     p.add_argument("--weight-decay", type=float, default=Config.weight_decay)
     p.add_argument("--augment", action="store_true", help="shift·밝기·cutout 증강")
+    p.add_argument("--norm", type=str, default=Config.norm, help="batch | group")
+    p.add_argument("--mixup", type=float, default=Config.mixup, help="Beta(a,a)의 a. 0이면 끈다")
+    p.add_argument("--ema", type=float, default=Config.ema, help="가중치 EMA 감쇠. 0이면 끈다")
+    p.add_argument("--adv", type=float, default=Config.adv, help="domain-adversarial 세기. 0이면 끈다")
+    p.add_argument("--dro", type=float, default=Config.dro, help="GroupDRO 학습률. 0이면 평균 손실")
     p.add_argument("--device", choices=["cpu", "gpu"], default="cpu",
                    help="gpu는 cupy로 같은 계층 코드를 GPU에서 돌린다")
     p.add_argument("--out", default="results/base")
@@ -321,7 +449,8 @@ def main() -> None:
 
     cfg = Config(epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
                  dropout=args.dropout, weight_decay=args.weight_decay,
-                 augment=args.augment)
+                 augment=args.augment, norm=args.norm, mixup=args.mixup,
+                 ema=args.ema, adv=args.adv, dro=args.dro)
     jobs = min(args.jobs, len(args.folds))
 
     from common.backend import describe

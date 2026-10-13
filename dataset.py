@@ -245,7 +245,8 @@ class Batches:
 
     def __init__(self, samples: Samples, batch_size: int, image_norm, head_std: Standardizer,
                  gaze_std: Standardizer | None = None, shuffle=True, drop_last=False,
-                 augment: "Augment | None" = None, seed=None):
+                 augment: "Augment | None" = None, group: np.ndarray | None = None,
+                 seed=None):
         self.samples = samples
         self.batch_size = batch_size
         self.image_norm = image_norm
@@ -254,6 +255,7 @@ class Batches:
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.augment = augment
+        self.group = group   # (N,) 0부터 매긴 사람 번호. None이면 내보내지 않는다
         self.rng = np.random.default_rng(seed)
 
     def __len__(self) -> int:
@@ -273,7 +275,10 @@ class Batches:
             image = self.image_norm(self.augment(raw) if self.augment else raw)
             head = self.head_std.transform(self.samples.head[idx])
             gaze = self.samples.gaze[idx]
-            yield image, head, (self.gaze_std.transform(gaze) if self.gaze_std else gaze)
+            gaze = self.gaze_std.transform(gaze) if self.gaze_std else gaze
+            # 사람 인덱스는 CPU에 둔다. 적대 학습의 라벨과 GroupDRO의 그룹 키로 쓴다.
+            person = self.group[to_cpu(idx)] if self.group is not None else None
+            yield image, head, gaze, person
 
 
 class ImageNorm:

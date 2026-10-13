@@ -334,3 +334,152 @@ class MeanSquaredError:
 
     def backward(self, dout=1.0):
         return dout * (self.y - self.t) / self.y.shape[0]
+
+
+class GroupNormalization:
+    """그룹 정규화 (Wu & He 2018). BatchNormalization을 대신 끼울 수 있다.
+
+    LOPO에서 BN에는 구조적인 불일치가 하나 있다. 학습 때 쓰는 통계는 배치 안
+    12명이 섞인 것이고, 추론 때 쓰는 running stats도 그 12명으로 만든 것인데,
+    정작 적용 대상은 한 번도 본 적 없는 13번째 사람이다. GN은 통계를 샘플 하나
+    안에서 내므로 사람이 바뀌어도 쓰는 통계가 달라지지 않는다. 배치에도,
+    running stats에도 기대지 않는다.
+
+    축만 다를 뿐 계산은 BN과 같은 꼴이라 역전파도 같은 닫힌 식을 쓴다.
+    """
+
+    def __init__(self, size, groups=8, eps=1e-5):
+        self.groups = min(groups, size)
+        while size % self.groups:      # 채널 수가 나누어떨어지게
+            self.groups -= 1
+        self.gamma = np.ones(size, dtype=DTYPE)
+        self.beta = np.zeros(size, dtype=DTYPE)
+        self.eps = eps
+        self.dgamma = None
+        self.dbeta = None
+        self._shape = None
+        self._xn = None
+        self._std = None
+
+    @property
+    def params(self):
+        return {"gamma": self.gamma, "beta": self.beta}
+
+    @property
+    def grads(self):
+        return {"gamma": self.dgamma, "beta": self.dbeta}
+
+    @staticmethod
+    def _bshape(ndim):
+        return (1, -1) if ndim == 2 else (1, -1, 1, 1)
+
+    @staticmethod
+    def _param_axes(ndim):
+        return (0,) if ndim == 2 else (0, 2, 3)
+
+    def forward(self, x, train_flg=True):
+        """train_flg는 받기만 한다. GN은 학습과 추론이 같은 계산이다."""
+        self._shape = x.shape
+        n = x.shape[0]
+
+        grouped = x.reshape(n, self.groups, -1)
+        mu = grouped.mean(axis=2, keepdims=True)
+        xc = grouped - mu
+        var = (xc * xc).mean(axis=2, keepdims=True)
+        std = np.sqrt(var + self.eps)
+
+        self._std = std
+        self._xn = xc / std
+
+        bshape = self._bshape(x.ndim)
+        return self.gamma.reshape(bshape) * self._xn.reshape(x.shape) + self.beta.reshape(bshape)
+
+    def backward(self, dout):
+        bshape = self._bshape(dout.ndim)
+        axes = self._param_axes(dout.ndim)
+        xn = self._xn.reshape(self._shape)
+
+        self.dbeta = dout.sum(axis=axes)
+        self.dgamma = (xn * dout).sum(axis=axes)
+
+        n = dout.shape[0]
+        dxn = (self.gamma.reshape(bshape) * dout).reshape(n, self.groups, -1)
+        xn = self._xn
+
+        dx = dxn - dxn.mean(axis=2, keepdims=True)
+        dx -= xn * (dxn * xn).mean(axis=2, keepdims=True)
+        dx /= self._std
+        return dx.reshape(self._shape)
+
+
+class GradientReversal:
+    """순전파는 항등, 역전파는 부호를 뒤집는다 (Ganin & Lempitsky 2015).
+
+    뒤에 붙은 분류기는 사람을 맞히려 학습하는데, 이 계층을 거쳐 특징 추출기로
+    가는 기울기는 부호가 뒤집혀 '사람을 못 맞히게' 만든다. 특징에서 사람 정체성을
+    직접 걷어내는 장치다. LOPO의 병목이 사람 외모 과적합이라는 진단에 바로 대응한다.
+    """
+
+    def __init__(self, scale=1.0):
+        self.scale = scale
+
+    def forward(self, x):
+        return x
+
+    def backward(self, dout):
+        return -self.scale * dout
+
+
+class SoftmaxWithLoss:
+    """교재 common/layers.py의 SoftmaxWithLoss. 사람 분류 head에 쓴다."""
+
+    def __init__(self):
+        self.y = None
+        self.t = None
+
+    @staticmethod
+    def _softmax(x):
+        x = x - x.max(axis=1, keepdims=True)
+        e = np.exp(x)
+        return e / e.sum(axis=1, keepdims=True)
+
+    def forward(self, x, t):
+        self.t = t
+        self.y = self._softmax(x)
+        n = self.y.shape[0]
+        picked = self.y[np.arange(n), t]
+        return float(-np.log(picked + 1e-7).sum()) / n
+
+    def backward(self, dout=1.0):
+        n = self.t.shape[0]
+        dx = self.y.copy()
+        dx[np.arange(n), self.t] -= 1.0
+        return dout * dx / n
+
+
+class WeightedMeanSquaredError:
+    """샘플마다 가중치를 주는 MSE. GroupDRO가 사람별 가중치를 넣는 통로다."""
+
+    def __init__(self):
+        self.y = None
+        self.t = None
+        self.w = None
+
+    def forward(self, y, t, w=None):
+        self.y, self.t = y, t
+        self.w = w
+        diff = y - t
+        per_sample = 0.5 * (diff * diff).sum(axis=1)
+        if w is None:
+            return float(per_sample.mean())
+        return float((w * per_sample).sum())
+
+    def per_sample(self):
+        diff = self.y - self.t
+        return 0.5 * (diff * diff).sum(axis=1)
+
+    def backward(self, dout=1.0):
+        diff = self.y - self.t
+        if self.w is None:
+            return dout * diff / self.y.shape[0]
+        return dout * diff * self.w[:, None]

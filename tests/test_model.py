@@ -97,6 +97,90 @@ def test_can_overfit():
     assert last < first * 0.01, "작은 묶음도 외우지 못한다"
 
 
+def test_adversarial_gradient():
+    """GRL이 붙은 줄기의 기울기는 손실의 참 기울기가 **아니다**. 그게 핵심이다.
+
+        줄기로 가는 기울기 = ∂L_task/∂θ − scale · ∂L_adv/∂θ
+
+    분류기는 사람을 맞히려 내려가고, 줄기는 그 반대로 밀린다. 그래서 전체 손실에
+    대한 수치 미분과 대조하면 당연히 어긋난다. 위 식 그대로인지를 확인한다.
+    """
+    import common.layers
+    import model as model_mod
+
+    print("\n=== GRL 줄기 기울기 = ∂L_task − scale·∂L_adv 인지 ===")
+    common.layers.DTYPE = model_mod.DTYPE = np.float64
+    scale = 0.7
+
+    net = GazeNet(conv_channels=(4, 6), hidden=12, joint=8, dropout=0.0,
+                  n_persons=5, adv_scale=scale, seed=0)
+    n = 6
+    image = RNG.standard_normal((n, *EYE_SHAPE))
+    head = RNG.standard_normal((n, 2))
+    gaze = RNG.standard_normal((n, 2))
+    person = RNG.integers(0, 5, n)
+
+    analytic = net.gradient(image, head, gaze, person=person)
+    scale_ref = max(np.abs(v).max() for v in analytic.values())
+
+    def num_grad(param, picks, **loss_kwargs):
+        flat = param.ravel()
+        out = np.empty(len(picks))
+        for j, i in enumerate(picks):
+            orig = flat[i]
+            flat[i] = orig + 1e-6
+            f1 = net.loss(image, head, gaze, train_flg=True, **loss_kwargs)
+            flat[i] = orig - 1e-6
+            f2 = net.loss(image, head, gaze, train_flg=True, **loss_kwargs)
+            flat[i] = orig
+            out[j] = (f1 - f2) / 2e-6
+        return out
+
+    worst = 0.0
+    for key, param in net.params.items():
+        flat = param.ravel()
+        picks = RNG.choice(flat.size, size=min(5, flat.size), replace=False)
+        task = num_grad(param, picks)                      # person 없이 = L_task만
+        total = num_grad(param, picks, person=person)      # L_task + L_adv
+        adv = total - task
+
+        trunk = not key.startswith("adv")
+        expected = task - scale * adv if trunk else total
+        got = analytic[key].ravel()[picks]
+        err = grad_err(got, expected, scale_ref)
+        worst = max(worst, err)
+        print(f"  {key:<12} {'줄기' if trunk else '분류기'}  err {err:.2e}")
+
+    # ∂L_adv를 두 수치 미분의 차(total − task)로 얻으므로 오차가 두 배로 쌓인다.
+    # 직접 비교하는 test_gradient보다 기준을 한 자리 느슨하게 둔다.
+    print(f"\n최악 {worst:.2e}  (기준 1e-4 — 수치 미분 두 개의 차라 오차가 겹친다)")
+    assert worst < 1e-4, "GRL 기울기가 정의와 다르다"
+
+
+def test_groupnorm_has_no_running_state():
+    """GN은 배치에도 running stats에도 기대지 않는다 — LOPO에서 쓰는 이유다."""
+    import common.layers
+    import model as model_mod
+
+    common.layers.DTYPE = model_mod.DTYPE = np.float32
+    net = GazeNet(norm="group", dropout=0.0, seed=0)
+    image = RNG.standard_normal((16, *EYE_SHAPE)).astype(np.float32)
+    head = RNG.standard_normal((16, 2)).astype(np.float32)
+
+    train_out = net.predict(image, head, train_flg=True)
+    eval_out = net.predict(image, head, train_flg=False)
+    same_mode = float(np.abs(train_out - eval_out).max())
+
+    # 배치를 반으로 갈라도 각 샘플의 출력이 그대로여야 한다 (BN이라면 달라진다)
+    half = np.concatenate([net.predict(image[:8], head[:8], train_flg=True),
+                           net.predict(image[8:], head[8:], train_flg=True)])
+    batch_free = float(np.abs(train_out - half).max())
+
+    print(f"\nGroupNorm  학습/추론 차이 {same_mode:.2e}, 배치를 갈랐을 때 차이 {batch_free:.2e}")
+    assert same_mode < 1e-5 and batch_free < 1e-4
+    assert not any("running" in k for k in net.state_dict()), "GN에 running 상태가 있다"
+
+
 def test_throughput(batch_size=128, steps=12):
     common.layers.DTYPE = model.DTYPE = np.float32
     net = GazeNet(seed=0)
@@ -118,6 +202,8 @@ def test_throughput(batch_size=128, steps=12):
 
 if __name__ == "__main__":
     test_gradient()
+    test_adversarial_gradient()
+    test_groupnorm_has_no_running_state()
     test_head_pose_is_used()
     test_can_overfit()
     test_throughput()
