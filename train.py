@@ -233,6 +233,10 @@ def _plot(results: list[dict], path: str) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    from eda import _use_korean_font
+    _use_korean_font()
+    plt.rcParams["axes.unicode_minus"] = False
+
     fig, axes = plt.subplots(1, 2, figsize=(9, 3.2), dpi=130)
     for r in sorted(results, key=lambda r: r["test_person"]):
         epochs = [h["epoch"] for h in r["history"]]
