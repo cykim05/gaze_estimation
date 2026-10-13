@@ -139,3 +139,24 @@ conda activate gaze
 
 conda install -c conda-forge jupyter matplotlib # for visualization and Eda
 ```
+
+
+## 풀이
+
+과제 2(EDA)와 과제 3(pipeline)의 수행 결과는 **[SOLUTION.md](SOLUTION.md)** 에 있다.
+교재 『밑바닥부터 시작하는 딥러닝』의 계층을 `common/`에 두고 그 위에 모델과
+leave-one-person-out 파이프라인을 올렸다. 딥러닝 프레임워크를 쓰지 않는다.
+
+| 방법 | leave-one-person-out 평균 각도 오차 |
+|------|------|
+| 평균 gaze 예측 (하한선) | 9.21° |
+| ridge 회귀 ([baseline_linear.py](baseline_linear.py)) | 7.27° |
+| GazeNet (numpy) | **6.06°** |
+
+```bash
+python -m tests.test_layers    # 계층 역전파를 수치 미분과 대조
+python -m tests.test_model     # 모델 전체 역전파 + 처리량
+python eda.py                  # 과제 2
+python train.py                # 과제 3 (15 fold 병렬, 128코어에서 158분)
+python analyze.py              # 오차 분석
+```

@@ -293,7 +293,7 @@ def main() -> None:
     p.add_argument("--dropout", type=float, default=Config.dropout)
     p.add_argument("--weight-decay", type=float, default=Config.weight_decay)
     p.add_argument("--augment", action="store_true", help="shift·밝기·cutout 증강")
-    p.add_argument("--out", default="results")
+    p.add_argument("--out", default="results/base")
     args = p.parse_args()
 
     cfg = Config(epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,

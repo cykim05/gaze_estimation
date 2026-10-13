@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 
 from train import Config, THREADS_PER_FOLD, train_fold
@@ -26,7 +27,7 @@ from train import Config, THREADS_PER_FOLD, train_fold
 # 1차 학습에서 본 증상: 학습 손실 0.35 → 0.046인데 검증은 epoch 1부터 평평했다.
 # 사람 외모에 과적합한다. 후보는 전부 "덜 외우게 만드는" 쪽이다.
 CANDIDATES = {
-    "base (현행)":               dict(dropout=0.2, weight_decay=0.0, augment=False),
+    "base":                      dict(dropout=0.2, weight_decay=0.0, augment=False),
     "dropout 0.5":               dict(dropout=0.5, weight_decay=0.0, augment=False),
     "wd 1e-4":                   dict(dropout=0.2, weight_decay=1e-4, augment=False),
     "augment":                   dict(dropout=0.2, weight_decay=0.0, augment=True),
@@ -55,8 +56,11 @@ def main() -> None:
     args = p.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
+    def slug(name: str) -> str:
+        return re.sub(r"[^0-9a-zA-Z.]+", "-", name).strip("-")
+
     jobs = [(name, Config(epochs=args.epochs, **kwargs), args.fold,
-             os.path.join(args.out, name.replace(" ", "_").replace("+", "")))
+             os.path.join(args.out, slug(name)))
             for name, kwargs in CANDIDATES.items()]
 
     print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · {args.epochs} epoch · "
