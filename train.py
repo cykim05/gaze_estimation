@@ -75,8 +75,12 @@ def predict_all(net, samples, norms, batch_size=512) -> np.ndarray:
     return gaze_std.inverse(out)
 
 
-def train_fold(cfg: Config, test_person: str, verbose: bool = True) -> dict:
-    """fold 하나를 처음부터 학습하고 테스트 각도 오차를 돌려준다."""
+def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
+               fold_dir: str | None = None, verbose: bool = True) -> dict:
+    """fold 하나를 처음부터 학습하고 테스트 각도 오차를 돌려준다.
+
+    병렬로 돌리면 stdout이 뒤섞이므로, log_dir이 있으면 fold마다 제 파일에 쓴다.
+    """
     import dataset
     from common.optimizer import Adam
     from dataset import Batches, ImageNorm, PERSONS, Standardizer
@@ -84,6 +88,17 @@ def train_fold(cfg: Config, test_person: str, verbose: bool = True) -> dict:
     from model import GazeNet
 
     t0 = time.perf_counter()
+    log_file = None
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = open(os.path.join(log_dir, f"{test_person}.log"), "w", buffering=1)
+
+    def say(line: str) -> None:
+        if log_file:
+            log_file.write(line + "\n")
+        if verbose:
+            print(line, flush=True)
+
     all_samples = dataset.load(verbose=False)
     train_persons, val_persons = split_persons(test_person, cfg.n_val_persons, list(PERSONS))
 
@@ -125,16 +140,25 @@ def train_fold(cfg: Config, test_person: str, verbose: bool = True) -> dict:
             best = {"val": val_err, "epoch": epoch, "state": net.state_dict()}
             best["state"] = {k: v.copy() for k, v in best["state"].items()}
 
-        if verbose:
-            mark = " *" if best["epoch"] == epoch else ""
-            print(f"  [{test_person}] epoch {epoch:>2}/{cfg.epochs}  "
-                  f"loss {running / n_batch:.4f}  val {val_err:.3f}°  "
-                  f"test {test_err:.3f}°{mark}", flush=True)
+        say(f"[{test_person}] epoch {epoch:>2}/{cfg.epochs}  "
+            f"loss {running / n_batch:.4f}  val {val_err:.3f}°  test {test_err:.3f}°"
+            f"{' *' if best['epoch'] == epoch else ''}  "
+            f"({(time.perf_counter() - t0) / 60:.1f}분)")
 
     # 검증 오차가 가장 낮았던 시점으로 되돌려 테스트를 잰다
     net.load_state_dict(best["state"])
     pred = predict_all(net, test, norms)
     test_err = mean_angular_error(pred, test.gaze)
+    say(f"[{test_person}] 완료: epoch {best['epoch']} 선택 → 테스트 {test_err:.3f}°")
+
+    # 나중에 다시 학습하지 않고 오차를 뜯어볼 수 있도록 예측과 가중치를 남긴다
+    if fold_dir:
+        os.makedirs(fold_dir, exist_ok=True)
+        np.savez_compressed(os.path.join(fold_dir, f"{test_person}.npz"),
+                            pred=pred, gaze=test.gaze, head=test.head,
+                            **{f"w.{k}": v for k, v in net.state_dict().items()})
+    if log_file:
+        log_file.close()
 
     return {
         "test_person": test_person,
@@ -149,21 +173,21 @@ def train_fold(cfg: Config, test_person: str, verbose: bool = True) -> dict:
 
 
 def _worker(args):
-    cfg, person = args
-    result = train_fold(cfg, person, verbose=False)
+    cfg, person, log_dir, fold_dir = args
+    result = train_fold(cfg, person, log_dir=log_dir, fold_dir=fold_dir, verbose=False)
     print(f"[{person}] {result['test_error']:.3f}°  "
           f"(best epoch {result['best_epoch']}, val {result['val_error']:.3f}°, "
           f"{result['seconds'] / 60:.1f}분)", flush=True)
     return result
 
 
-def run(cfg: Config, folds: list[str], jobs: int) -> list[dict]:
+def run(cfg: Config, folds: list[str], jobs: int, log_dir: str, fold_dir: str) -> list[dict]:
     if jobs == 1:
-        return [train_fold(cfg, p) for p in folds]
+        return [train_fold(cfg, p, log_dir=log_dir, fold_dir=fold_dir) for p in folds]
 
     from multiprocessing import get_context
     with get_context("spawn").Pool(jobs) as pool:
-        return pool.map(_worker, [(cfg, p) for p in folds])
+        return pool.map(_worker, [(cfg, p, log_dir, fold_dir) for p in folds])
 
 
 def report(cfg: Config, results: list[dict], out_dir: str) -> None:
@@ -176,12 +200,32 @@ def report(cfg: Config, results: list[dict], out_dir: str) -> None:
     print(fold_table("GazeNet (numpy)", errors))
     print("\n" + summary(errors))
 
+    _collect_predictions(results, os.path.join(out_dir, "folds"),
+                         os.path.join(out_dir, "predictions.npz"))
+
     path = os.path.join(out_dir, "lopo.json")
     with open(path, "w") as f:
         json.dump({"config": asdict(cfg), "results": results}, f, indent=2)
     print(f"\n→ {path}")
 
     _plot(results, os.path.join(out_dir, "curves.png"))
+
+
+def _collect_predictions(results, fold_dir: str, path: str) -> None:
+    """fold별 npz에서 예측만 모아 가벼운 한 파일로. 가중치는 두고 온다."""
+    if not os.path.isdir(fold_dir):
+        return
+    persons, pred, gaze, head = [], [], [], []
+    for r in sorted(results, key=lambda r: r["test_person"]):
+        f = os.path.join(fold_dir, f"{r['test_person']}.npz")
+        if not os.path.exists(f):
+            return
+        with np.load(f) as z:
+            pred.append(z["pred"]); gaze.append(z["gaze"]); head.append(z["head"])
+        persons += [r["test_person"]] * len(pred[-1])
+    np.savez_compressed(path, person=np.array(persons), pred=np.concatenate(pred),
+                        gaze=np.concatenate(gaze), head=np.concatenate(head))
+    print(f"→ {path}")
 
 
 def _plot(results: list[dict], path: str) -> None:
@@ -225,8 +269,12 @@ def main() -> None:
     print(f"fold {len(args.folds)}개 · worker {jobs}개 · "
           f"worker당 BLAS 스레드 {THREADS_PER_FOLD}개 (환경변수 GAZE_THREADS)")
     print(f"{cfg}")
+    log_dir = os.path.join(args.out, "logs")
+    fold_dir = os.path.join(args.out, "folds")
+    print(f"fold별 진행 상황: {log_dir}/pXX.log")
+    print(f"fold별 가중치·예측: {fold_dir}/pXX.npz\n")
     t0 = time.perf_counter()
-    results = run(cfg, args.folds, jobs)
+    results = run(cfg, args.folds, jobs, log_dir, fold_dir)
     print(f"\n전체 {(time.perf_counter() - t0) / 60:.1f}분")
     report(cfg, results, args.out)
 

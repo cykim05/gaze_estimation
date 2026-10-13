@@ -60,6 +60,11 @@ class Samples:
     def person_names(self) -> list[str]:
         return [PERSONS[i] for i in np.unique(self.person)]
 
+    @property
+    def person_array(self) -> np.ndarray:
+        """샘플마다 사람 이름. 다른 곳에서 만든 배열과 순서를 맞출 때 쓴다."""
+        return np.asarray(PERSONS)[self.person]
+
     @staticmethod
     def concat(parts: list["Samples"]) -> "Samples":
         return Samples(
