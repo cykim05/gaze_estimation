@@ -16,11 +16,16 @@ fold마다 데이터를 보고 고르는 것은 '몇 epoch에서 멈출까' 하�
 from __future__ import annotations
 
 import os
+import sys
 
 # BLAS 스레드 수는 numpy를 들이기 전에 정해야 한다. 아래 import보다 위에 있어야 하는 이유다.
 # conv는 BLAS로 가지만 BN·ReLU·풀링 같은 원소별 연산은 단일 스레드라, 스레드를 늘리는 것보다
 # fold를 프로세스로 나눠 동시에 돌리는 쪽이 훨씬 빠르다(측정: 15 worker에서 9.7배).
 # spawn으로 뜨는 자식 프로세스도 이 파일을 다시 import하므로 같은 값이 걸린다.
+# --device gpu는 여기서 환경변수를 세워야 한다. common.backend가 import 시점에 읽는다.
+if "--device" in sys.argv:
+    os.environ["GAZE_DEVICE"] = sys.argv[sys.argv.index("--device") + 1]
+
 THREADS_PER_FOLD = os.environ.get("GAZE_THREADS", "2")
 for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
              "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
@@ -82,13 +87,15 @@ def cosine_lr(step: int, total: int, lr: float, final_ratio: float) -> float:
 
 
 def predict_all(net, samples, norms, batch_size=512) -> np.ndarray:
-    """추론 전용 경로. gaze는 학습 때 표준화해 두었으므로 되돌려서 라디안으로 낸다."""
+    """추론 전용 경로. 입력은 장치 위에서, 결과는 CPU numpy 라디안으로 낸다."""
+    from common.backend import to_cpu
+
     image_norm, head_std, gaze_std = norms
     out = np.empty((len(samples), 2), dtype=np.float32)
     for start in range(0, len(samples), batch_size):
         sl = slice(start, start + batch_size)
-        out[sl] = net.predict(image_norm(samples.image[sl]),
-                              head_std.transform(samples.head[sl]), train_flg=False)
+        out[sl] = to_cpu(net.predict(image_norm(samples.image[sl]),
+                                     head_std.transform(samples.head[sl]), train_flg=False))
     return gaze_std.inverse(out)
 
 
@@ -100,6 +107,7 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     병렬로 돌리면 stdout이 뒤섞이므로, log_dir이 있으면 fold마다 제 파일에 쓴다.
     """
     import dataset
+    from common.backend import describe, synchronize
     from common.optimizer import Adam
     from dataset import Augment, Batches, ImageNorm, PERSONS, Standardizer
     from metrics import mean_angular_error
@@ -120,15 +128,19 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     all_samples = dataset.load(verbose=False)
     train_persons, val_persons = split_persons(test_person, cfg.n_val_persons, list(PERSONS))
 
-    train = all_samples.only(*train_persons)
-    val = all_samples.only(*val_persons)
-    test = all_samples.only(test_person)
+    train_cpu = all_samples.only(*train_persons)
+    val_cpu = all_samples.only(*val_persons)
+    test_cpu = all_samples.only(test_person)
 
     # 정규화 통계는 학습 12명에서만 뽑는다. 검증·테스트 사람은 쳐다보지 않는다.
-    norms = (ImageNorm.fit(train.image),
-             Standardizer.fit(train.head),
-             Standardizer.fit(train.gaze))
+    norms = (ImageNorm.fit(train_cpu.image),
+             Standardizer.fit(train_cpu.head),
+             Standardizer.fit(train_cpu.gaze))
     image_norm, head_std, gaze_std = norms
+
+    # 45,000장이 uint8로 93MB라 통째로 장치에 올려 둔다. 배치마다 옮기지 않는다.
+    train, val, test = train_cpu.to_device(), val_cpu.to_device(), test_cpu.to_device()
+    say(f"[{test_person}] {describe()}  학습 {len(train)} / 검증 {len(val)} / 테스트 {len(test)}")
 
     net = GazeNet(conv_channels=cfg.conv_channels, hidden=cfg.hidden,
                   joint=cfg.joint, dropout=cfg.dropout, seed=cfg.seed)
@@ -151,10 +163,11 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
             step += 1
             n_batch += 1
 
-        val_err = mean_angular_error(predict_all(net, val, norms), val.gaze)
+        synchronize()
+        val_err = mean_angular_error(predict_all(net, val, norms), val_cpu.gaze)
         # track_test=False면 테스트를 아예 계산하지 않는다. 설정을 고르는 동안
         # 테스트 숫자가 눈에 띄는 일 자체를 막는다.
-        test_err = mean_angular_error(predict_all(net, test, norms), test.gaze) \
+        test_err = mean_angular_error(predict_all(net, test, norms), test_cpu.gaze) \
             if track_test else float("nan")
         history.append({"epoch": epoch, "loss": running / n_batch,
                         "val": val_err, "test": test_err})
@@ -173,7 +186,7 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     net.load_state_dict(best["state"])
     if track_test:
         pred = predict_all(net, test, norms)
-        test_err = mean_angular_error(pred, test.gaze)
+        test_err = mean_angular_error(pred, test_cpu.gaze)
         say(f"[{test_person}] 완료: epoch {best['epoch']} 선택 → 테스트 {test_err:.3f}°")
     else:
         pred, test_err = None, float("nan")
@@ -183,7 +196,7 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     if fold_dir and pred is not None:
         os.makedirs(fold_dir, exist_ok=True)
         np.savez_compressed(os.path.join(fold_dir, f"{test_person}.npz"),
-                            pred=pred, gaze=test.gaze, head=test.head,
+                            pred=pred, gaze=test_cpu.gaze, head=test_cpu.head,
                             **{f"w.{k}": v for k, v in net.state_dict().items()})
     if log_file:
         log_file.close()
@@ -293,6 +306,8 @@ def main() -> None:
     p.add_argument("--dropout", type=float, default=Config.dropout)
     p.add_argument("--weight-decay", type=float, default=Config.weight_decay)
     p.add_argument("--augment", action="store_true", help="shift·밝기·cutout 증강")
+    p.add_argument("--device", choices=["cpu", "gpu"], default="cpu",
+                   help="gpu는 cupy로 같은 계층 코드를 GPU에서 돌린다")
     p.add_argument("--out", default="results/base")
     args = p.parse_args()
 
@@ -301,8 +316,10 @@ def main() -> None:
                  augment=args.augment)
     jobs = min(args.jobs, len(args.folds))
 
-    print(f"fold {len(args.folds)}개 · worker {jobs}개 · "
-          f"worker당 BLAS 스레드 {THREADS_PER_FOLD}개 (환경변수 GAZE_THREADS)")
+    from common.backend import describe
+    print(f"fold {len(args.folds)}개 · worker {jobs}개 · {describe()}")
+    if args.device == "cpu":
+        print(f"worker당 BLAS 스레드 {THREADS_PER_FOLD}개 (환경변수 GAZE_THREADS)")
     print(f"{cfg}")
     log_dir = os.path.join(args.out, "logs")
     fold_dir = os.path.join(args.out, "folds")

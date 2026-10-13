@@ -20,22 +20,40 @@ import argparse
 import json
 import os
 import re
+import sys
 import time
+
+if "--device" in sys.argv:   # common.backend가 import 시점에 읽는다
+    os.environ["GAZE_DEVICE"] = sys.argv[sys.argv.index("--device") + 1]
 
 from train import Config, THREADS_PER_FOLD, train_fold
 
 # 1차 학습에서 본 증상: 학습 손실 0.35 → 0.046인데 검증은 epoch 1부터 평평했다.
 # 사람 외모에 과적합한다. 후보는 전부 "덜 외우게 만드는" 쪽이다.
-CANDIDATES = {
-    "base":                      dict(dropout=0.2, weight_decay=0.0, augment=False),
-    "dropout 0.5":               dict(dropout=0.5, weight_decay=0.0, augment=False),
-    "wd 1e-4":                   dict(dropout=0.2, weight_decay=1e-4, augment=False),
-    "augment":                   dict(dropout=0.2, weight_decay=0.0, augment=True),
-    "augment + dropout 0.5":     dict(dropout=0.5, weight_decay=0.0, augment=True),
-    "augment + wd 1e-4":         dict(dropout=0.2, weight_decay=1e-4, augment=True),
+REGULARIZATION = {
+    "base":                        dict(dropout=0.2, weight_decay=0.0, augment=False),
+    "dropout 0.5":                 dict(dropout=0.5, weight_decay=0.0, augment=False),
+    "wd 1e-4":                     dict(dropout=0.2, weight_decay=1e-4, augment=False),
+    "augment":                     dict(dropout=0.2, weight_decay=0.0, augment=True),
+    "augment + dropout 0.5":       dict(dropout=0.5, weight_decay=0.0, augment=True),
+    "augment + wd 1e-4":           dict(dropout=0.2, weight_decay=1e-4, augment=True),
     "augment + do 0.35 + wd 3e-4": dict(dropout=0.35, weight_decay=3e-4, augment=True),
-    "augment + do 0.5 + wd 1e-4": dict(dropout=0.5, weight_decay=1e-4, augment=True),
+    "augment + do 0.5 + wd 1e-4":  dict(dropout=0.5, weight_decay=1e-4, augment=True),
+    "augment + do 0.6 + wd 1e-3":  dict(dropout=0.6, weight_decay=1e-3, augment=True),
+    "augment + do 0.5 + wd 1e-3":  dict(dropout=0.5, weight_decay=1e-3, augment=True),
 }
+
+# 정규화를 고른 뒤 용량을 본다. 과적합이 심했으니 키우는 쪽이 꼭 좋다는 보장이 없고,
+# 그래서 재 본다. REG는 --reg로 넣는다(기본값은 1단계 1위).
+CAPACITY = {
+    "narrow (16,32,64) h128":   dict(conv_channels=(16, 32, 64), hidden=128, joint=64),
+    "base   (24,48,96) h256":   dict(conv_channels=(24, 48, 96), hidden=256, joint=96),
+    "wide   (32,64,128) h256":  dict(conv_channels=(32, 64, 128), hidden=256, joint=96),
+    "wide   (32,64,128) h512":  dict(conv_channels=(32, 64, 128), hidden=512, joint=128),
+    "deep   (24,48,96,96) h256": dict(conv_channels=(24, 48, 96, 96), hidden=256, joint=96),
+}
+
+PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY}
 
 
 def _worker(args):
@@ -52,25 +70,47 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--fold", default="p00", help="개발용 fold. 이 fold의 테스트는 보지 않는다")
     p.add_argument("--epochs", type=int, default=8)
-    p.add_argument("--out", default="results/search")
+    p.add_argument("--preset", choices=sorted(PRESETS), default="regularization")
+    p.add_argument("--reg", nargs="*", default=[],
+                   help="capacity 단계에서 고정할 정규화 설정, 예: dropout=0.5 weight_decay=1e-4 augment=1")
+    p.add_argument("--jobs", type=int, default=0, help="0이면 후보 수만큼 한꺼번에 (GPU는 1 권장)")
+    p.add_argument("--device", choices=["cpu", "gpu"], default="cpu")
+    p.add_argument("--out", default=None)
     args = p.parse_args()
 
+    candidates = dict(PRESETS[args.preset])
+    if args.reg:
+        fixed = {}
+        for item in args.reg:
+            key, value = item.split("=")
+            fixed[key] = bool(int(value)) if key == "augment" else float(value)
+            if key == "dropout":
+                fixed[key] = float(value)
+        candidates = {name: {**kwargs, **fixed} for name, kwargs in candidates.items()}
+        print(f"고정한 정규화 설정: {fixed}")
+
+    args.out = args.out or f"results/search-{args.preset}"
     os.makedirs(args.out, exist_ok=True)
     def slug(name: str) -> str:
         return re.sub(r"[^0-9a-zA-Z.]+", "-", name).strip("-")
 
     jobs = [(name, Config(epochs=args.epochs, **kwargs), args.fold,
              os.path.join(args.out, slug(name)))
-            for name, kwargs in CANDIDATES.items()]
+            for name, kwargs in candidates.items()]
 
+    from common.backend import describe
+    workers = args.jobs or len(jobs)
     print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · {args.epochs} epoch · "
-          f"worker당 BLAS 스레드 {THREADS_PER_FOLD}개")
+          f"worker {workers}개 · {describe()}")
     print("테스트 오차는 계산하지 않는다 (track_test=False)\n")
 
     t0 = time.perf_counter()
-    from multiprocessing import get_context
-    with get_context("spawn").Pool(len(jobs)) as pool:
-        results = pool.map(_worker, jobs)
+    if workers == 1:
+        results = [_worker(j) for j in jobs]
+    else:
+        from multiprocessing import get_context
+        with get_context("spawn").Pool(workers) as pool:
+            results = pool.map(_worker, jobs)
     print(f"\n{(time.perf_counter() - t0) / 60:.1f}분")
 
     results.sort(key=lambda r: r["val"])
@@ -78,10 +118,11 @@ def main() -> None:
     for i, r in enumerate(results, 1):
         print(f"{i:<4}{r['name']:<32}{r['val']:>9.3f}°{r['epoch']:>7}")
 
-    base = next(r for r in results if r["name"].startswith("base"))
+    base = next((r for r in results if r["name"].strip().startswith("base")), results[-1])
     win = results[0]
     print(f"\n고른 설정: {win['name']}  "
-          f"(검증 {base['val']:.3f}° → {win['val']:.3f}°, {win['val'] - base['val']:+.3f}°)")
+          f"(기준 {base['name']} {base['val']:.3f}° → {win['val']:.3f}°, "
+          f"{win['val'] - base['val']:+.3f}°)")
 
     path = os.path.join(args.out, "search.json")
     with open(path, "w") as f:

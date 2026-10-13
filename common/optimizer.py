@@ -4,7 +4,7 @@
 키는 모델이 정하고, 옵티마이저는 키를 그대로 따라간다.
 """
 
-import numpy as np
+from common.backend import xp as np
 
 
 class SGD:

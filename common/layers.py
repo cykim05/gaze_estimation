@@ -11,7 +11,10 @@
 회귀 과제이므로 SoftmaxWithLoss 대신 MeanSquaredError를 쓴다.
 """
 
-import numpy as np
+import numpy
+
+from common.backend import to_device
+from common.backend import xp as np
 
 from common.util import col2im, conv_output_size, im2col
 
@@ -34,9 +37,14 @@ class Relu:
 
 
 class Affine:
-    """완전연결. 교재와 같이 4D 입력을 받으면 알아서 펴므로 Flatten 계층이 따로 없다."""
+    """완전연결. 교재와 같이 4D 입력을 받으면 알아서 펴므로 Flatten 계층이 따로 없다.
 
-    def __init__(self, W, b):
+    `b=None`이면 편향을 두지 않는다. 바로 뒤에 BatchNormalization이 오면 BN이
+    평균을 빼므로 편향은 출력에 아무 영향이 없다(참 기울기가 정확히 0이다).
+    두어 봐야 Adam 상태만 차지하고, 0으로 나누는 자리에서 수치 잡음만 만든다.
+    """
+
+    def __init__(self, W, b=None):
         self.W = W
         self.b = b
         self.x = None
@@ -46,26 +54,30 @@ class Affine:
 
     @property
     def params(self):
-        return {"W": self.W, "b": self.b}
+        return {"W": self.W} if self.b is None else {"W": self.W, "b": self.b}
 
     @property
     def grads(self):
-        return {"W": self.dW, "b": self.db}
+        return {"W": self.dW} if self.b is None else {"W": self.dW, "b": self.db}
 
     def forward(self, x):
         self.original_x_shape = x.shape
         self.x = x.reshape(x.shape[0], -1)
-        return np.dot(self.x, self.W) + self.b
+        out = np.dot(self.x, self.W)
+        return out if self.b is None else out + self.b
 
     def backward(self, dout):
         dx = np.dot(dout, self.W.T)
         self.dW = np.dot(self.x.T, dout)
-        self.db = np.sum(dout, axis=0)
+        if self.b is not None:
+            self.db = np.sum(dout, axis=0)
         return dx.reshape(*self.original_x_shape)
 
 
 class Convolution:
-    def __init__(self, W, b, stride=1, pad=0):
+    """`b=None`이면 편향을 두지 않는다. 이유는 Affine의 docstring과 같다."""
+
+    def __init__(self, W, b=None, stride=1, pad=0):
         self.W = W
         self.b = b
         self.stride = stride
@@ -78,11 +90,11 @@ class Convolution:
 
     @property
     def params(self):
-        return {"W": self.W, "b": self.b}
+        return {"W": self.W} if self.b is None else {"W": self.W, "b": self.b}
 
     @property
     def grads(self):
-        return {"W": self.dW, "b": self.db}
+        return {"W": self.dW} if self.b is None else {"W": self.dW, "b": self.db}
 
     def forward(self, x):
         FN, _, FH, FW = self.W.shape
@@ -92,7 +104,9 @@ class Convolution:
 
         col = im2col(x, FH, FW, self.stride, self.pad)
         col_W = self.W.reshape(FN, -1).T
-        out = np.dot(col, col_W) + self.b
+        out = np.dot(col, col_W)
+        if self.b is not None:
+            out += self.b
 
         self.x = x
         self.col = col
@@ -103,7 +117,8 @@ class Convolution:
         FN, C, FH, FW = self.W.shape
         dout = dout.transpose(0, 2, 3, 1).reshape(-1, FN)
 
-        self.db = np.sum(dout, axis=0)
+        if self.b is not None:
+            self.db = np.sum(dout, axis=0)
         self.dW = np.dot(self.col.T, dout).transpose(1, 0).reshape(FN, C, FH, FW)
         dcol = np.dot(dout, self.col_W.T)
         return col2im(dcol, self.x.shape, FH, FW, self.stride, self.pad)
@@ -281,17 +296,23 @@ class BatchNormalization:
 
 
 class Dropout:
-    """seed를 받는다. 받지 않으면 실행마다 결과가 달라져 재현이 안 된다."""
+    """seed를 받는다. 받지 않으면 실행마다 결과가 달라져 재현이 안 된다.
+
+    마스크는 CPU에서 뽑아 올린다. cupy 생성기는 같은 seed로도 numpy와 다른 수열을
+    내기 때문이다. 이 모델에서 드롭아웃이 걸리는 자리는 (N, 256)뿐이라 옮기는
+    비용이 거의 없다. 큰 특징 맵에 걸 때는 장치에서 뽑는 쪽이 낫다.
+    """
 
     def __init__(self, ratio=0.5, seed=None):
         self.ratio = ratio
         self.mask = None
-        self.rng = np.random.default_rng(seed)
+        self.rng = numpy.random.default_rng(seed)
 
     def forward(self, x, train_flg=True):
         if not train_flg:
             return x
-        self.mask = (self.rng.random(x.shape) > self.ratio).astype(x.dtype)
+        drawn = (self.rng.random(x.shape) > self.ratio).astype(numpy.float32)
+        self.mask = to_device(drawn).astype(x.dtype)
         return x * self.mask / (1.0 - self.ratio)
 
     def backward(self, dout):

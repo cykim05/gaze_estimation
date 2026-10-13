@@ -17,8 +17,10 @@
 
 from __future__ import annotations
 
-import numpy as np
+import numpy
 
+from common.backend import to_cpu, to_device
+from common.backend import xp as np
 from common.layers import (
     Affine,
     BatchNormalization,
@@ -35,24 +37,28 @@ HEAD_DIM = 2
 OUT_DIM = 2
 
 
-def he_normal(shape, fan_in, rng) -> np.ndarray:
-    """ReLU 앞단의 표준 초깃값. 교재의 '권장 가중치 초깃값'과 같다."""
-    return (rng.standard_normal(shape) * np.sqrt(2.0 / fan_in)).astype(DTYPE)
+def he_normal(shape, fan_in, rng):
+    """ReLU 앞단의 표준 초깃값. 교재의 '권장 가중치 초깃값'과 같다.
+
+    난수는 반드시 CPU(numpy)에서 뽑아 장치로 올린다. cupy의 생성기는 같은 seed로도
+    numpy와 다른 수열을 내므로, 장치에서 바로 뽑으면 CPU와 GPU가 다른 모델이 된다.
+    """
+    return to_device((rng.standard_normal(shape) * numpy.sqrt(2.0 / fan_in)).astype(DTYPE))
 
 
 class GazeNet:
     def __init__(self, conv_channels=(24, 48, 96), hidden=256, joint=96,
                  dropout=0.2, input_shape=EYE_SHAPE, seed=None):
-        rng = np.random.default_rng(seed)
+        rng = numpy.random.default_rng(seed)   # 초깃값은 장치와 무관해야 한다
         c_in, h, w = input_shape
 
         self.image_layers: list = []
         self._named: list[tuple[str, object]] = []
 
         for i, c_out in enumerate(conv_channels, start=1):
+            # 뒤에 BN이 오므로 편향을 두지 않는다. BN의 beta가 같은 일을 한다.
             W = he_normal((c_out, c_in, 3, 3), c_in * 9, rng)
-            b = np.zeros(c_out, dtype=DTYPE)
-            conv = Convolution(W, b, stride=1, pad=1)
+            conv = Convolution(W, stride=1, pad=1)
             bn = BatchNormalization(c_out)
             self._add(f"conv{i}", conv)
             self._add(f"bn{i}", bn)
@@ -60,7 +66,7 @@ class GazeNet:
             c_in, h, w = c_out, h // 2, w // 2
 
         flat = c_in * h * w
-        fc = Affine(he_normal((flat, hidden), flat, rng), np.zeros(hidden, dtype=DTYPE))
+        fc = Affine(he_normal((flat, hidden), flat, rng))   # 뒤가 BN이라 편향 없음
         bn_fc = BatchNormalization(hidden)
         self._add("fc", fc)
         self._add("bn_fc", bn_fc)
@@ -121,20 +127,21 @@ class GazeNet:
 
     # ------------------------------------------------------------------ 저장/복원
 
-    def state_dict(self) -> dict[str, np.ndarray]:
-        state = dict(self.params)
+    def state_dict(self) -> dict:
+        """항상 CPU(numpy) 배열로 돌려준다. 저장과 비교는 장치와 무관해야 한다."""
+        state = {k: to_cpu(v) for k, v in self.params.items()}
         for name, layer in self._named:
             if isinstance(layer, BatchNormalization):
-                state.update({f"{name}.{k}": v for k, v in layer.state.items()})
+                state.update({f"{name}.{k}": to_cpu(v) for k, v in layer.state.items()})
         return state
 
-    def load_state_dict(self, state: dict[str, np.ndarray]) -> None:
+    def load_state_dict(self, state: dict) -> None:
         for name, layer in self._named:
             for key, value in layer.params.items():
-                value[...] = state[f"{name}.{key}"]
+                value[...] = to_device(state[f"{name}.{key}"])
             if isinstance(layer, BatchNormalization):
                 for key, value in layer.state.items():
-                    value[...] = state[f"{name}.{key}"]
+                    value[...] = to_device(state[f"{name}.{key}"])
 
     def n_params(self) -> int:
         return sum(v.size for v in self.params.values())

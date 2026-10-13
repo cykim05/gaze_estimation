@@ -5,7 +5,7 @@
 교재 원본과 다른 점은 dtype을 입력 그대로 유지하는 것뿐이다(float32 유지 → 2배 빠름).
 """
 
-import numpy as np
+from common.backend import xp as np
 
 
 def conv_output_size(size: int, filter_size: int, stride: int, pad: int) -> int:

@@ -1,0 +1,4 @@
+노드 hai-iclr · GPU 0 · 작업 1326
+개발용 fold p00 · 후보 10개 · 20 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 36.8/44.4 GiB)
+테스트 오차는 계산하지 않는다 (track_test=False)
+

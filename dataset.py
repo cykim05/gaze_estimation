@@ -17,6 +17,8 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 import reader
+from common.backend import to_cpu, to_device
+from common.backend import xp
 
 PERSONS = tuple(f"p{k:02d}" for k in range(15))
 DATA_ROOT = "data/EyeBased/MPIIGaze"
@@ -64,6 +66,11 @@ class Samples:
     def person_array(self) -> np.ndarray:
         """샘플마다 사람 이름. 다른 곳에서 만든 배열과 순서를 맞출 때 쓴다."""
         return np.asarray(PERSONS)[self.person]
+
+    def to_device(self) -> "Samples":
+        """배열을 현재 장치로 올린다. person은 CPU에 남긴다(인덱싱·보고용)."""
+        return replace(self, image=to_device(self.image), head=to_device(self.head),
+                       gaze=to_device(self.gaze))
 
     @staticmethod
     def concat(parts: list["Samples"]) -> "Samples":
@@ -125,23 +132,35 @@ def load(persons=PERSONS, root=DATA_ROOT, cache_dir=CACHE_DIR, verbose=True) -> 
 
 
 class Standardizer:
-    """평균 0, 표준편차 1로 맞춘다. 반드시 학습 fold로만 fit한다(테스트 사람 누설 금지)."""
+    """평균 0, 표준편차 1로 맞춘다. 반드시 학습 fold로만 fit한다(테스트 사람 누설 금지).
+
+    통계는 numpy로 들고 있다가 쓰는 쪽에 맞춘다.
+    `transform`은 학습 배치용이라 현재 장치에서, `inverse`는 예측을 라디안으로
+    되돌리는 용도라 CPU에서 돈다. 평가·저장은 전부 CPU에서 하기 때문이다.
+    """
 
     def __init__(self, mean: np.ndarray, std: np.ndarray):
         self.mean = mean
         self.std = std
+        self._device = None
 
     @classmethod
     def fit(cls, x: np.ndarray, axis=0, eps=1e-8) -> "Standardizer":
+        x = to_cpu(x)
         mean = x.mean(axis=axis, keepdims=True).astype(np.float32)
         std = x.std(axis=axis, keepdims=True).astype(np.float32) + np.float32(eps)
         return cls(mean, std)
 
-    def transform(self, x: np.ndarray) -> np.ndarray:
-        return ((x - self.mean) / self.std).astype(np.float32)
+    def transform(self, x):
+        """현재 장치 위의 배치를 표준화한다."""
+        if self._device is None:
+            self._device = (to_device(self.mean), to_device(self.std))
+        mean, std = self._device
+        return ((x - mean) / std).astype(np.float32)
 
     def inverse(self, x: np.ndarray) -> np.ndarray:
-        return (x * self.std + self.mean).astype(np.float32)
+        """CPU 예측을 원래 눈금으로 되돌린다."""
+        return (to_cpu(x) * self.std + self.mean).astype(np.float32)
 
 
 class Augment:
@@ -167,38 +186,52 @@ class Augment:
         self.cutout_prob = cutout_prob
         self.rng = np.random.default_rng(seed)
 
-    def __call__(self, image: np.ndarray) -> np.ndarray:
-        """(N, 1, 36, 60) uint8 → 같은 모양 float32 (0~255 눈금 유지)."""
-        n, _, h, w = image.shape
+    def __call__(self, image):
+        """(N, 1, 36, 60) uint8 → 같은 모양 float32 (0~255 눈금 유지).
+
+        샘플마다 다른 변형을 걸지만 파이썬 루프는 쓰지 않는다. GPU에서 루프를
+        돌면 커널을 128번 띄우고 그때마다 동기화한다. 전부 한 번의 gather와
+        한 번의 마스크 연산으로 바꿨다.
+        """
+        n, c, h, w = image.shape
         rng = self.rng
 
         if self.shift:
             s = self.shift
-            padded = np.pad(image, ((0, 0), (0, 0), (s, s), (s, s)), mode="edge")
-            dy = rng.integers(0, 2 * s + 1, n)
-            dx = rng.integers(0, 2 * s + 1, n)
-            shifted = np.empty_like(image)
-            for i in range(n):
-                shifted[i] = padded[i, :, dy[i]:dy[i] + h, dx[i]:dx[i] + w]
-            image = shifted
+            padded = xp.pad(image, ((0, 0), (0, 0), (s, s), (s, s)), mode="edge")
+            dy = xp.asarray(rng.integers(0, 2 * s + 1, n))
+            dx = xp.asarray(rng.integers(0, 2 * s + 1, n))
+            rows = dy[:, None] + xp.arange(h)          # (n, h)
+            cols = dx[:, None] + xp.arange(w)          # (n, w)
+            image = padded[
+                xp.arange(n)[:, None, None, None],
+                xp.arange(c)[None, :, None, None],
+                rows[:, None, :, None],
+                cols[:, None, None, :],
+            ]
 
         out = image.astype(np.float32)
 
         if self.brightness or self.contrast:
-            gain = 1.0 + rng.uniform(-self.contrast, self.contrast, (n, 1, 1, 1))
-            bias = rng.uniform(-self.brightness, self.brightness, (n, 1, 1, 1)) * 255.0
-            out = (out - 127.5) * gain.astype(np.float32) + 127.5 + bias.astype(np.float32)
-            np.clip(out, 0.0, 255.0, out=out)
+            gain = xp.asarray(
+                rng.uniform(1 - self.contrast, 1 + self.contrast, (n, 1, 1, 1)), dtype=np.float32)
+            bias = xp.asarray(
+                rng.uniform(-self.brightness, self.brightness, (n, 1, 1, 1)) * 255.0,
+                dtype=np.float32)
+            out = (out - np.float32(127.5)) * gain + np.float32(127.5) + bias
+            out = xp.clip(out, 0.0, 255.0)
 
         if self.cutout:
-            hit = rng.random(n) < self.cutout_prob
-            cy = rng.integers(0, h, n)
-            cx = rng.integers(0, w, n)
             half = self.cutout // 2
-            for i in np.flatnonzero(hit):
-                y0, y1 = max(0, cy[i] - half), min(h, cy[i] + half)
-                x0, x1 = max(0, cx[i] - half), min(w, cx[i] + half)
-                out[i, :, y0:y1, x0:x1] = 127.5
+            cy = xp.asarray(rng.integers(0, h, n))
+            cx = xp.asarray(rng.integers(0, w, n))
+            hit = xp.asarray(rng.random(n) < self.cutout_prob)
+            inside = (
+                (xp.abs(xp.arange(h)[None, :, None] - cy[:, None, None]) < half)
+                & (xp.abs(xp.arange(w)[None, None, :] - cx[:, None, None]) < half)
+                & hit[:, None, None]
+            )
+            out = xp.where(inside[:, None, :, :], np.float32(127.5), out)
 
         return out
 
@@ -230,6 +263,7 @@ class Batches:
     def __iter__(self):
         n = len(self.samples)
         order = self.rng.permutation(n) if self.shuffle else np.arange(n)
+        order = to_device(order)   # cupy는 인덱스 배열도 같은 장치에 있어야 한다
 
         for start in range(0, n, self.batch_size):
             idx = order[start:start + self.batch_size]
