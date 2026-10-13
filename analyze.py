@@ -28,7 +28,7 @@ def load_predictions(out_dir: str):
     path = os.path.join(out_dir, "predictions.npz")
     with np.load(path) as z:
         person, pred, gaze, head = z["person"], z["pred"], z["gaze"], z["head"]
-    with open(os.path.join(out_dir, "lopo.json")) as f:
+    with open(os.path.join(out_dir, "lopo.json"), encoding="utf-8") as f:
         run = json.load(f)
     return person, pred, gaze, head, run
 

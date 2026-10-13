@@ -2,3 +2,19 @@
 개발용 fold p00 · 후보 10개 · 20 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 36.8/44.4 GiB)
 테스트 오차는 계산하지 않는다 (track_test=False)
 
+  base                           검증 5.225°  (epoch 2, 학습 손실 0.2304, 3.2분)
+Traceback (most recent call last):
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/search.py", line 134, in <module>
+    main()
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/search.py", line 109, in main
+    results = [_worker(j) for j in jobs]
+               ^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/search.py", line 61, in _worker
+    r = train_fold(cfg, person, log_dir=log_dir, track_test=False, verbose=False)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 143, in train_fold
+    say(f"[{test_person}] {describe()}  학습 {len(train)} / 검증 {len(val)} / 테스트 {len(test)}")
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 124, in say
+    log_file.write(line + "\n")
+UnicodeEncodeError: 'ascii' codec can't encode characters in position 38-39: ordinal not in range(128)
+srun: error: hai-iclr: task 0: Exited with exit code 1

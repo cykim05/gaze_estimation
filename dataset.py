@@ -322,7 +322,7 @@ def label_frame(persons=PERSONS, root=DATA_ROOT):
 
     for person in persons:
         path = os.path.join(root, "Label", f"{person}.label")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             header = f.readline().split()
             for line in f:
                 if not line.strip():

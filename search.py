@@ -82,12 +82,12 @@ def main() -> None:
     if args.reg:
         fixed = {}
         for item in args.reg:
-            key, value = item.split("=")
+            key, _, value = item.partition("=")
+            if key not in Config.__dataclass_fields__:
+                raise SystemExit(f"Config에 없는 항목이다: {key}")
             fixed[key] = bool(int(value)) if key == "augment" else float(value)
-            if key == "dropout":
-                fixed[key] = float(value)
         candidates = {name: {**kwargs, **fixed} for name, kwargs in candidates.items()}
-        print(f"고정한 정규화 설정: {fixed}")
+        print(f"모든 후보에 고정한 설정: {fixed}")
 
     args.out = args.out or f"results/search-{args.preset}"
     os.makedirs(args.out, exist_ok=True)
@@ -125,8 +125,8 @@ def main() -> None:
           f"{win['val'] - base['val']:+.3f}°)")
 
     path = os.path.join(args.out, "search.json")
-    with open(path, "w") as f:
-        json.dump(results, f, indent=2)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
     print(f"→ {path}")
 
 

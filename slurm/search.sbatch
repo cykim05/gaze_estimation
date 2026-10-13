@@ -15,6 +15,10 @@ set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p slurm/logs
 
+# SLURM은 LANG을 안 넘겨준다. stdout이 ASCII로 잡혀 한글 출력이 죽는 것을 막는다.
+export PYTHONIOENCODING=utf-8
+export LANG=${LANG:-C.UTF-8}
+
 PYTHON=/data/hai_chanyoung/miniconda3/envs/gaze/bin/python
 
 echo "노드 $(hostname) · GPU ${CUDA_VISIBLE_DEVICES:-?} · 작업 ${SLURM_JOB_ID:-local}"

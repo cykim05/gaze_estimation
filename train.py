@@ -22,6 +22,12 @@ import sys
 # conv는 BLAS로 가지만 BN·ReLU·풀링 같은 원소별 연산은 단일 스레드라, 스레드를 늘리는 것보다
 # fold를 프로세스로 나눠 동시에 돌리는 쪽이 훨씬 빠르다(측정: 15 worker에서 9.7배).
 # spawn으로 뜨는 자식 프로세스도 이 파일을 다시 import하므로 같은 값이 걸린다.
+# 텍스트 파일은 전부 encoding="utf-8"을 명시한다. 로케일 기본값에 기대지 않는다.
+# SLURM에서 돌린 탐색 작업이 이것 때문에 죽었다. 한 프로세스 안에서 첫 후보는 한글
+# 로그를 정상적으로 썼는데 두 번째 후보부터 'ascii' codec 오류가 났다. 즉 프로세스가
+# 도는 중에 open()의 기본 인코딩이 바뀌었다. CUDA 쪽 네이티브 라이브러리가 로케일을
+# 건드리는 것으로 의심되지만 확인하지는 못했다. 원인이 무엇이든 명시하면 사라진다.
+
 # --device gpu는 여기서 환경변수를 세워야 한다. common.backend가 import 시점에 읽는다.
 if "--device" in sys.argv:
     os.environ["GAZE_DEVICE"] = sys.argv[sys.argv.index("--device") + 1]
@@ -117,7 +123,8 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     log_file = None
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
-        log_file = open(os.path.join(log_dir, f"{test_person}.log"), "w", buffering=1)
+        log_file = open(os.path.join(log_dir, f"{test_person}.log"), "w",
+                        encoding="utf-8", buffering=1)
 
     def say(line: str) -> None:
         if log_file:
@@ -245,8 +252,9 @@ def report(cfg: Config, results: list[dict], out_dir: str) -> None:
                          os.path.join(out_dir, "predictions.npz"))
 
     path = os.path.join(out_dir, "lopo.json")
-    with open(path, "w") as f:
-        json.dump({"config": asdict(cfg), "results": results}, f, indent=2)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"config": asdict(cfg), "results": results}, f, indent=2,
+                  ensure_ascii=False)
     print(f"\n→ {path}")
 
     _plot(results, os.path.join(out_dir, "curves.png"))

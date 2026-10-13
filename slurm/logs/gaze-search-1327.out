@@ -1,0 +1,8 @@
+노드 hai-iclr · GPU 0 · 작업 1327
+모든 후보에 고정한 설정: {'dropout': 0.5, 'weight_decay': 0.0001, 'augment': True}
+개발용 fold p00 · 후보 5개 · 20 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 29.2/44.4 GiB)
+테스트 오차는 계산하지 않는다 (track_test=False)
+
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** STEP 1327.0 ON hai-iclr CANCELLED AT 2026-10-13T16:33:22 ***
+slurmstepd: error: *** JOB 1327 ON hai-iclr CANCELLED AT 2026-10-13T16:33:22 ***
