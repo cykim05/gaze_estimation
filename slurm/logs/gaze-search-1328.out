@@ -2,3 +2,30 @@
 개발용 fold p00 · 후보 10개 · 20 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 27.0/44.4 GiB)
 테스트 오차는 계산하지 않는다 (track_test=False)
 
+  base                           검증 5.225°  (epoch 2, 학습 손실 0.2304, 2.9분)
+  dropout 0.5                    검증 4.897°  (epoch 8, 학습 손실 0.1415, 2.3분)
+  wd 1e-4                        검증 5.209°  (epoch 2, 학습 손실 0.2303, 2.3분)
+  augment                        검증 5.318°  (epoch 2, 학습 손실 0.2901, 4.5분)
+  augment + dropout 0.5          검증 5.078°  (epoch 2, 학습 손실 0.3300, 1.9분)
+  augment + wd 1e-4              검증 5.187°  (epoch 6, 학습 손실 0.1951, 1.9분)
+  augment + do 0.35 + wd 3e-4    검증 4.810°  (epoch 8, 학습 손실 0.1943, 4.4분)
+  augment + do 0.5 + wd 1e-4     검증 4.854°  (epoch 7, 학습 손실 0.2288, 4.4분)
+  augment + do 0.6 + wd 1e-3     검증 5.019°  (epoch 8, 학습 손실 0.2295, 4.4분)
+  augment + do 0.5 + wd 1e-3     검증 5.009°  (epoch 7, 학습 손실 0.2268, 4.4분)
+
+33.7분
+
+순위  설정                                   검증 오차  epoch
+1   augment + do 0.35 + wd 3e-4         4.810°      8
+2   augment + do 0.5 + wd 1e-4          4.854°      7
+3   dropout 0.5                         4.897°      8
+4   augment + do 0.5 + wd 1e-3          5.009°      7
+5   augment + do 0.6 + wd 1e-3          5.019°      8
+6   augment + dropout 0.5               5.078°      2
+7   augment + wd 1e-4                   5.187°      6
+8   wd 1e-4                             5.209°      2
+9   base                                5.225°      2
+10  augment                             5.318°      2
+
+고른 설정: augment + do 0.35 + wd 3e-4  (기준 base 5.225° → 4.810°, -0.414°)
+→ results/search-regularization/search.json

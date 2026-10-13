@@ -1,0 +1,10 @@
+노드 hai-iclr · GPU 0 · 작업 1330
+0, NVIDIA L40S, 11338 MiB, 46068 MiB
+fold 15개 · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 32.9/44.4 GiB)
+Config(epochs=20, batch_size=128, lr=0.002, lr_final_ratio=0.02, dropout=0.35, weight_decay=0.0003, augment=True, conv_channels=(24, 48, 96), hidden=256, joint=96, n_val_persons=2, seed=0)
+fold별 진행 상황: results/gpu/logs/pXX.log
+fold별 가중치·예측: results/gpu/folds/pXX.npz
+
+[p00] GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 32.8/44.4 GiB)  학습 36000 / 검증 6000 / 테스트 3000
+[p00] epoch  1/20  loss 0.4238  val 5.864°  test 3.990° *  (0.3분)
+[p00] epoch  2/20  loss 0.3075  val 5.223°  test 4.228° *  (0.5분)

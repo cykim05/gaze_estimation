@@ -53,7 +53,15 @@ CAPACITY = {
     "deep   (24,48,96,96) h256": dict(conv_channels=(24, 48, 96, 96), hidden=256, joint=96),
 }
 
-PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY}
+# 1·2단계에서 고른 설정의 best epoch가 20 중 7~8이었다. 코사인 감쇠가 끝나기 전에
+# 최저점이 나온다는 뜻이고, 그러면 예산을 줄여 감쇠를 다 쓰는 쪽이 나을 수 있다.
+# 학습률과 예산은 서로 묶여 있으므로 같이 본다.
+SCHEDULE = {
+    f"{e} epoch · lr {lr:g}": dict(epochs=e, lr=lr)
+    for e in (10, 20, 40) for lr in (1e-3, 2e-3, 4e-3)
+}
+
+PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY, "schedule": SCHEDULE}
 
 
 def _worker(args):
@@ -94,14 +102,16 @@ def main() -> None:
     def slug(name: str) -> str:
         return re.sub(r"[^0-9a-zA-Z.]+", "-", name).strip("-")
 
-    jobs = [(name, Config(epochs=args.epochs, **kwargs), args.fold,
+    # 후보가 epochs를 직접 정하면(schedule 단계) 그쪽을 쓴다
+    jobs = [(name, Config(**{"epochs": args.epochs, **kwargs}), args.fold,
              os.path.join(args.out, slug(name)))
             for name, kwargs in candidates.items()]
 
     from common.backend import describe
     workers = args.jobs or len(jobs)
-    print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · {args.epochs} epoch · "
-          f"worker {workers}개 · {describe()}")
+    budgets = sorted({j[1].epochs for j in jobs})
+    print(f"개발용 fold {args.fold} · 후보 {len(jobs)}개 · "
+          f"{'/'.join(map(str, budgets))} epoch · worker {workers}개 · {describe()}")
     print("테스트 오차는 계산하지 않는다 (track_test=False)\n")
 
     t0 = time.perf_counter()

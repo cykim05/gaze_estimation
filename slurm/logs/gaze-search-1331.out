@@ -1,0 +1,5 @@
+노드 hai-iclr · GPU 0 · 작업 1331
+모든 후보에 고정한 설정: {'dropout': 0.35, 'weight_decay': 0.0003, 'augment': True}
+개발용 fold p00 · 후보 9개 · 10/20/40 epoch · worker 1개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 8.9/44.4 GiB)
+테스트 오차는 계산하지 않는다 (track_test=False)
+
