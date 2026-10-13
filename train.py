@@ -41,11 +41,28 @@ class Config:
     lr: float = 2e-3
     lr_final_ratio: float = 0.02   # 코사인 감쇠의 끝 지점
     dropout: float = 0.2
+    weight_decay: float = 0.0      # 가중치 행렬에만. bias·BN 파라미터는 건드리지 않는다
+    augment: bool = False
     conv_channels: tuple = (24, 48, 96)
     hidden: int = 256
     joint: int = 96
     n_val_persons: int = 2
     seed: int = 0
+
+
+# weight decay를 걸지 않는 파라미터. bias와 BN의 gamma·beta를 0으로 당기면
+# 정규화가 아니라 표현력만 깎인다.
+NO_DECAY_SUFFIX = (".b", ".gamma", ".beta")
+
+
+def apply_weight_decay(params: dict, lr: float, weight_decay: float) -> None:
+    """decoupled weight decay. Adam의 적응 보폭과 섞이지 않게 갱신과 따로 건다."""
+    if weight_decay <= 0:
+        return
+    factor = 1.0 - lr * weight_decay
+    for key, value in params.items():
+        if not key.endswith(NO_DECAY_SUFFIX):
+            value *= factor
 
 
 def split_persons(test: str, n_val: int, persons) -> tuple[list[str], list[str]]:
@@ -76,14 +93,15 @@ def predict_all(net, samples, norms, batch_size=512) -> np.ndarray:
 
 
 def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
-               fold_dir: str | None = None, verbose: bool = True) -> dict:
+               fold_dir: str | None = None, track_test: bool = True,
+               verbose: bool = True) -> dict:
     """fold 하나를 처음부터 학습하고 테스트 각도 오차를 돌려준다.
 
     병렬로 돌리면 stdout이 뒤섞이므로, log_dir이 있으면 fold마다 제 파일에 쓴다.
     """
     import dataset
     from common.optimizer import Adam
-    from dataset import Batches, ImageNorm, PERSONS, Standardizer
+    from dataset import Augment, Batches, ImageNorm, PERSONS, Standardizer
     from metrics import mean_angular_error
     from model import GazeNet
 
@@ -115,8 +133,9 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     net = GazeNet(conv_channels=cfg.conv_channels, hidden=cfg.hidden,
                   joint=cfg.joint, dropout=cfg.dropout, seed=cfg.seed)
     opt = Adam(lr=cfg.lr)
+    augment = Augment(seed=cfg.seed + 2) if cfg.augment else None
     batches = Batches(train, cfg.batch_size, image_norm, head_std, gaze_std,
-                      shuffle=True, drop_last=True, seed=cfg.seed)
+                      shuffle=True, drop_last=True, augment=augment, seed=cfg.seed)
 
     total_steps = cfg.epochs * len(batches)
     history, best = [], {"val": np.inf, "epoch": -1, "state": None}
@@ -128,11 +147,15 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
             opt.lr = cosine_lr(step, total_steps, cfg.lr, cfg.lr_final_ratio)
             running += net.loss(image, head, gaze, train_flg=True)
             opt.update(net.params, net.gradient(image, head, gaze))
+            apply_weight_decay(net.params, opt.lr, cfg.weight_decay)
             step += 1
             n_batch += 1
 
         val_err = mean_angular_error(predict_all(net, val, norms), val.gaze)
-        test_err = mean_angular_error(predict_all(net, test, norms), test.gaze)
+        # track_test=False면 테스트를 아예 계산하지 않는다. 설정을 고르는 동안
+        # 테스트 숫자가 눈에 띄는 일 자체를 막는다.
+        test_err = mean_angular_error(predict_all(net, test, norms), test.gaze) \
+            if track_test else float("nan")
         history.append({"epoch": epoch, "loss": running / n_batch,
                         "val": val_err, "test": test_err})
 
@@ -141,18 +164,23 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
             best["state"] = {k: v.copy() for k, v in best["state"].items()}
 
         say(f"[{test_person}] epoch {epoch:>2}/{cfg.epochs}  "
-            f"loss {running / n_batch:.4f}  val {val_err:.3f}°  test {test_err:.3f}°"
+            f"loss {running / n_batch:.4f}  val {val_err:.3f}°  "
+            f"test {test_err:.3f}°"
             f"{' *' if best['epoch'] == epoch else ''}  "
             f"({(time.perf_counter() - t0) / 60:.1f}분)")
 
     # 검증 오차가 가장 낮았던 시점으로 되돌려 테스트를 잰다
     net.load_state_dict(best["state"])
-    pred = predict_all(net, test, norms)
-    test_err = mean_angular_error(pred, test.gaze)
-    say(f"[{test_person}] 완료: epoch {best['epoch']} 선택 → 테스트 {test_err:.3f}°")
+    if track_test:
+        pred = predict_all(net, test, norms)
+        test_err = mean_angular_error(pred, test.gaze)
+        say(f"[{test_person}] 완료: epoch {best['epoch']} 선택 → 테스트 {test_err:.3f}°")
+    else:
+        pred, test_err = None, float("nan")
+        say(f"[{test_person}] 완료: epoch {best['epoch']} 선택 (검증 {best['val']:.3f}°)")
 
     # 나중에 다시 학습하지 않고 오차를 뜯어볼 수 있도록 예측과 가중치를 남긴다
-    if fold_dir:
+    if fold_dir and pred is not None:
         os.makedirs(fold_dir, exist_ok=True)
         np.savez_compressed(os.path.join(fold_dir, f"{test_person}.npz"),
                             pred=pred, gaze=test.gaze, head=test.head,
@@ -263,11 +291,14 @@ def main() -> None:
     p.add_argument("--batch-size", type=int, default=Config.batch_size)
     p.add_argument("--lr", type=float, default=Config.lr)
     p.add_argument("--dropout", type=float, default=Config.dropout)
+    p.add_argument("--weight-decay", type=float, default=Config.weight_decay)
+    p.add_argument("--augment", action="store_true", help="shift·밝기·cutout 증강")
     p.add_argument("--out", default="results")
     args = p.parse_args()
 
-    cfg = Config(epochs=args.epochs, batch_size=args.batch_size,
-                 lr=args.lr, dropout=args.dropout)
+    cfg = Config(epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
+                 dropout=args.dropout, weight_decay=args.weight_decay,
+                 augment=args.augment)
     jobs = min(args.jobs, len(args.folds))
 
     print(f"fold {len(args.folds)}개 · worker {jobs}개 · "

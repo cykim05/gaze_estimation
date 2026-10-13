@@ -5,4 +5,4 @@ data/
 __pycache__/
 
 # 학습 산출물: fold별 가중치는 크다(fold당 3MB). 결과 표/곡선/예측만 올린다.
-results/folds/
+results/*/folds/

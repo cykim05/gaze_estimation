@@ -144,6 +144,65 @@ class Standardizer:
         return (x * self.std + self.mean).astype(np.float32)
 
 
+class Augment:
+    """학습 배치에만 거는 증강. 추론·평가 경로에는 걸지 않는다.
+
+    **좌우 반전은 쓸 수 없다.** 오른눈은 전처리에서 이미 왼눈처럼 뒤집혀 저장돼
+    있다. 왼눈 이미지를 다시 뒤집으면 데이터에 없는 영상이 된다.
+
+    쓸 수 있는 것은 셋이다.
+    - shift: 눈 중심 검출이 몇 픽셀 틀렸을 때를 흉내 낸다. 정규화가 눈을 가운데
+      맞춰 놓은 탓에 모델이 '가운데가 동공'이라는 가정에 기대기 쉽다(EDA 5절).
+    - brightness/contrast: histogram equalization이 지우고 남은 조명 차이를 넓힌다.
+    - cutout: 눈의 일부를 가려 한 군데(예: 속눈썹 모양)에만 의존하지 못하게 한다.
+      사람이 바뀌면 그 한 군데가 제일 먼저 달라진다.
+    """
+
+    def __init__(self, shift=2, brightness=0.12, contrast=0.12, cutout=8,
+                 cutout_prob=0.5, seed=None):
+        self.shift = shift
+        self.brightness = brightness
+        self.contrast = contrast
+        self.cutout = cutout
+        self.cutout_prob = cutout_prob
+        self.rng = np.random.default_rng(seed)
+
+    def __call__(self, image: np.ndarray) -> np.ndarray:
+        """(N, 1, 36, 60) uint8 → 같은 모양 float32 (0~255 눈금 유지)."""
+        n, _, h, w = image.shape
+        rng = self.rng
+
+        if self.shift:
+            s = self.shift
+            padded = np.pad(image, ((0, 0), (0, 0), (s, s), (s, s)), mode="edge")
+            dy = rng.integers(0, 2 * s + 1, n)
+            dx = rng.integers(0, 2 * s + 1, n)
+            shifted = np.empty_like(image)
+            for i in range(n):
+                shifted[i] = padded[i, :, dy[i]:dy[i] + h, dx[i]:dx[i] + w]
+            image = shifted
+
+        out = image.astype(np.float32)
+
+        if self.brightness or self.contrast:
+            gain = 1.0 + rng.uniform(-self.contrast, self.contrast, (n, 1, 1, 1))
+            bias = rng.uniform(-self.brightness, self.brightness, (n, 1, 1, 1)) * 255.0
+            out = (out - 127.5) * gain.astype(np.float32) + 127.5 + bias.astype(np.float32)
+            np.clip(out, 0.0, 255.0, out=out)
+
+        if self.cutout:
+            hit = rng.random(n) < self.cutout_prob
+            cy = rng.integers(0, h, n)
+            cx = rng.integers(0, w, n)
+            half = self.cutout // 2
+            for i in np.flatnonzero(hit):
+                y0, y1 = max(0, cy[i] - half), min(h, cy[i] + half)
+                x0, x1 = max(0, cx[i] - half), min(w, cx[i] + half)
+                out[i, :, y0:y1, x0:x1] = 127.5
+
+        return out
+
+
 class Batches:
     """미니배치 반복자. uint8 이미지를 배치 단위로만 float32로 바꾼다.
 
@@ -152,7 +211,8 @@ class Batches:
     """
 
     def __init__(self, samples: Samples, batch_size: int, image_norm, head_std: Standardizer,
-                 gaze_std: Standardizer | None = None, shuffle=True, drop_last=False, seed=None):
+                 gaze_std: Standardizer | None = None, shuffle=True, drop_last=False,
+                 augment: "Augment | None" = None, seed=None):
         self.samples = samples
         self.batch_size = batch_size
         self.image_norm = image_norm
@@ -160,6 +220,7 @@ class Batches:
         self.gaze_std = gaze_std
         self.shuffle = shuffle
         self.drop_last = drop_last
+        self.augment = augment
         self.rng = np.random.default_rng(seed)
 
     def __len__(self) -> int:
@@ -174,7 +235,8 @@ class Batches:
             idx = order[start:start + self.batch_size]
             if self.drop_last and len(idx) < self.batch_size:
                 break
-            image = self.image_norm(self.samples.image[idx])
+            raw = self.samples.image[idx]
+            image = self.image_norm(self.augment(raw) if self.augment else raw)
             head = self.head_std.transform(self.samples.head[idx])
             gaze = self.samples.gaze[idx]
             yield image, head, (self.gaze_std.transform(gaze) if self.gaze_std else gaze)
@@ -201,6 +263,7 @@ class ImageNorm:
         return cls(float(flat.mean()), float(flat.std()) + 1e-8)
 
     def __call__(self, image: np.ndarray) -> np.ndarray:
+        """uint8도 Augment가 내놓은 float32(0~255 눈금)도 그대로 받는다."""
         return (image.astype(np.float32) / np.float32(255.0) - self.mean) / self.std
 
 

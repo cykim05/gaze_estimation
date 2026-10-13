@@ -1,0 +1,586 @@
+[
+  {
+    "name": "augment + do 0.5 + wd 1e-4",
+    "val": 5.115103644575923,
+    "epoch": 2,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.45464647102610495,
+        "val": 6.354490975369555,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.32967595437879665,
+        "val": 5.115103644575923,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.2922435393855241,
+        "val": 5.1674888760310225,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.26362837516964543,
+        "val": 5.652214100082613,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.2443663624257804,
+        "val": 5.266327247900153,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.22621670874412372,
+        "val": 5.249044902205296,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.21486670181844583,
+        "val": 5.187722976101834,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.20922207487647643,
+        "val": 5.158115344345246,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.5,
+      "weight_decay": 0.0001,
+      "augment": true,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "augment + dropout 0.5",
+    "val": 5.167445923729564,
+    "epoch": 3,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.4521230608755159,
+        "val": 6.054389360752447,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.3310840885516163,
+        "val": 5.229801824205367,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.29334676976305735,
+        "val": 5.167445923729564,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.26247454702429923,
+        "val": 5.961676169101892,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.24413078683975328,
+        "val": 5.442012036801182,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.22593194866731922,
+        "val": 5.347264178914765,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.21552901919202025,
+        "val": 5.318743289023217,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.2098559819930813,
+        "val": 5.225425725456445,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.5,
+      "weight_decay": 0.0,
+      "augment": true,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "augment + do 0.35 + wd 3e-4",
+    "val": 5.179300022316402,
+    "epoch": 2,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.42912601936754385,
+        "val": 5.9624355170745025,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.3101208876566531,
+        "val": 5.179300022316402,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.27144199726420365,
+        "val": 5.379719738585646,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.23931693463350953,
+        "val": 5.957460722436284,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.22190491674845753,
+        "val": 5.628491319500941,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.20402515793610299,
+        "val": 5.562335799358783,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.19382902497286475,
+        "val": 5.637873645342167,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.18716568112691526,
+        "val": 5.5174373533403465,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.35,
+      "weight_decay": 0.0003,
+      "augment": true,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "dropout 0.5",
+    "val": 5.238341129804372,
+    "epoch": 7,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.3906874176234113,
+        "val": 5.416282889606396,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.27057837872530643,
+        "val": 5.3550667762204425,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.22971124384963215,
+        "val": 5.393211131587629,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.19869104886818612,
+        "val": 5.303664209778647,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.17505153215546626,
+        "val": 5.245168188122287,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.152444118998441,
+        "val": 5.33834652197594,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.13663365686597348,
+        "val": 5.238341129804372,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.12830531403581444,
+        "val": 5.259756194014899,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.5,
+      "weight_decay": 0.0,
+      "augment": false,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "base (\ud604\ud589)",
+    "val": 5.280876194733287,
+    "epoch": 1,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.34822565067917427,
+        "val": 5.280876194733287,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.22869213747384284,
+        "val": 5.61989715917126,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.18484637241982904,
+        "val": 5.572217754315979,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.15069309404630254,
+        "val": 5.6189469922228765,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.12520775989069208,
+        "val": 5.466700929223596,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.10185164056744864,
+        "val": 5.422776070753165,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.08728814908565151,
+        "val": 5.297506064349302,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.08033033497498977,
+        "val": 5.286508568183478,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.2,
+      "weight_decay": 0.0,
+      "augment": false,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "augment + wd 1e-4",
+    "val": 5.414142885280405,
+    "epoch": 2,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.4127291448387811,
+        "val": 5.9167280162062115,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.2913090197959404,
+        "val": 5.414142885280405,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.24969639064366284,
+        "val": 5.761691712377467,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.21969382793665782,
+        "val": 6.084430237472053,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.20082562424746273,
+        "val": 5.720947834060941,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.1817052232307047,
+        "val": 5.503091968351,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.17109549220558587,
+        "val": 5.548577944858333,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.1640423285473284,
+        "val": 5.49911255687569,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.2,
+      "weight_decay": 0.0001,
+      "augment": true,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "augment",
+    "val": 5.425958759517138,
+    "epoch": 6,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.41178428161610914,
+        "val": 5.84743761918783,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.29047324659561347,
+        "val": 5.448995419416379,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.24913116191841952,
+        "val": 5.522582586552143,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.21976625033757016,
+        "val": 5.833354997729603,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.20107616510679713,
+        "val": 5.572391796517061,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.1813246600886681,
+        "val": 5.425958759517138,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.17119798925953827,
+        "val": 5.469079647607032,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.16443553269970035,
+        "val": 5.4311905707448105,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.2,
+      "weight_decay": 0.0,
+      "augment": true,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  },
+  {
+    "name": "wd 1e-4",
+    "val": 5.476043692719499,
+    "epoch": 3,
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.3493074129378668,
+        "val": 5.524948931371262,
+        "test": NaN
+      },
+      {
+        "epoch": 2,
+        "loss": 0.22881637842417613,
+        "val": 5.54821231951844,
+        "test": NaN
+      },
+      {
+        "epoch": 3,
+        "loss": 0.18512382689744128,
+        "val": 5.476043692719499,
+        "test": NaN
+      },
+      {
+        "epoch": 4,
+        "loss": 0.15129521038396504,
+        "val": 5.712319434696319,
+        "test": NaN
+      },
+      {
+        "epoch": 5,
+        "loss": 0.12493614470619324,
+        "val": 5.78979227418083,
+        "test": NaN
+      },
+      {
+        "epoch": 6,
+        "loss": 0.10147243388182751,
+        "val": 5.6447753429166445,
+        "test": NaN
+      },
+      {
+        "epoch": 7,
+        "loss": 0.08722398032391199,
+        "val": 5.528542881623559,
+        "test": NaN
+      },
+      {
+        "epoch": 8,
+        "loss": 0.08012196334125309,
+        "val": 5.486563648531584,
+        "test": NaN
+      }
+    ],
+    "config": {
+      "epochs": 8,
+      "batch_size": 128,
+      "lr": 0.002,
+      "lr_final_ratio": 0.02,
+      "dropout": 0.2,
+      "weight_decay": 0.0001,
+      "augment": false,
+      "conv_channels": [
+        24,
+        48,
+        96
+      ],
+      "hidden": 256,
+      "joint": 96,
+      "n_val_persons": 2,
+      "seed": 0
+    }
+  }
+]
