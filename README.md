@@ -143,20 +143,41 @@ conda install -c conda-forge jupyter matplotlib # for visualization and Eda
 
 ## 풀이
 
-과제 2(EDA)와 과제 3(pipeline)의 수행 결과는 **[SOLUTION.md](SOLUTION.md)** 에 있다.
-교재 『밑바닥부터 시작하는 딥러닝』의 계층을 `common/`에 두고 그 위에 모델과
-leave-one-person-out 파이프라인을 올렸다. 딥러닝 프레임워크를 쓰지 않는다.
+과제 2(EDA)와 과제 3(pipeline) 수행 보고서는 **[SOLUTION.md](SOLUTION.md)** 에 있다.
+교재 『밑바닥부터 시작하는 딥러닝』의 im2col·계층·옵티마이저를 `common/`에 두고 그
+위에 모델과 leave-one-person-out 파이프라인을 올렸다. 딥러닝 프레임워크를 쓰지 않으며,
+모든 계층의 역전파를 수치 미분과 대조해 두었다.
 
-| 방법 | leave-one-person-out 평균 각도 오차 |
+| 방법 | LOPO 평균 각도 오차 |
 |------|------|
 | 평균 gaze 예측 (하한선) | 9.21° |
 | ridge 회귀 ([baseline_linear.py](baseline_linear.py)) | 7.27° |
-| GazeNet (numpy) | **6.06°** |
+| PCA 24성분 + 선형 회귀 | 7.22° |
+| **GazeNet (numpy / cupy)** | **6.06° · 6.12°** |
+
+두 수치는 서로 다른 설정의 두 실행이고 통계적으로 구분되지 않는다(대응표본 t = 0.99).
+하나를 골라 적지 않은 이유는 [SOLUTION.md 8절](SOLUTION.md#8-설정-탐색-그리고-그것이-틀렸음을-알게-된-과정)에 있다.
+
+**보고서에서 눈여겨볼 곳**
+
+- [3절](SOLUTION.md#3-eda-과제-2) — EDA. 사람이 바뀔 때 달라지는 것은 gaze 분포가
+  아니라 눈의 외모라는 것, 정보가 동공 둘레에 몰려 있다는 것. 여기서 모델 구조가 나왔다.
+- [5절](SOLUTION.md#5-numpy에서-gpu까지--같은-계층-코드로) — numpy CNN의 병목은
+  conv가 아니라 단일 스레드 원소별 연산이었다. 계층 코드를 한 줄도 바꾸지 않고
+  cupy로 옮겨 50배.
+- [7절](SOLUTION.md#7-오차-분석) — 모델이 예측을 평균 쪽으로 수축시킨다(정답 1°당
+  yaw 0.64°). EDA에서 세운 가설 하나는 확인되지 않았고 그대로 적었다.
+- [8절](SOLUTION.md#8-설정-탐색-그리고-그것이-틀렸음을-알게-된-과정) — 설정 탐색의
+  측정 오차를 재 보니 0.132°였고, 그동안 줄 세우던 차이와 같은 크기였다.
+  하필 모든 탐색이 쓴 seed가 이상치였다. 다시 재고 더 단순한 답에 도달했다.
+- [9절](SOLUTION.md#9-최신-일반화-기법은-도움이-되었는가) — GroupNorm, 적대 학습,
+  mixup, EMA, GroupDRO를 직접 구현해 넣었다. 어느 것도 유의한 개선을 주지 못했다.
 
 ```bash
-python -m tests.test_layers    # 계층 역전파를 수치 미분과 대조
-python -m tests.test_model     # 모델 전체 역전파 + 처리량
-python eda.py                  # 과제 2
-python train.py                # 과제 3 (15 fold 병렬, 128코어에서 158분)
-python analyze.py              # 오차 분석
+python -m tests.test_layers              # 계층 역전파 ↔ 수치 미분
+python -m tests.test_model               # 모델 전체 역전파, 처리량
+python -m tests.test_backend             # CPU와 GPU가 같은 계산을 하는지
+python eda.py                            # 과제 2
+python train.py --epochs 20 --dropout 0.5 --device gpu --out results/final
+python analyze.py                        # 오차 분석
 ```

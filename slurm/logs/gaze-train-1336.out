@@ -1,0 +1,39 @@
+노드 hai-iclr · GPU 0,1,2,3 · 작업 1336
+0, NVIDIA L40S, 9036 MiB, 46068 MiB
+1, NVIDIA L40S, 38912 MiB, 46068 MiB
+2, NVIDIA L40S, 14 MiB, 46068 MiB
+3, NVIDIA L40S, 24672 MiB, 46068 MiB
+fold 15개 · worker 8개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 35.1/44.4 GiB)
+Config(epochs=20, batch_size=128, lr=0.002, lr_final_ratio=0.02, dropout=0.5, weight_decay=0.0, augment=False, norm='batch', mixup=0.0, ema=0.0, adv=0.0, dro=0.0, conv_channels=(24, 48, 96), hidden=256, joint=96, n_val_persons=2, seed=0)
+fold별 진행 상황: results/final/logs/pXX.log
+fold별 가중치·예측: results/final/folds/pXX.npz
+
+GPU 여유: 0=35.1GiB, 1=6.0GiB (제외), 2=44.0GiB, 3=19.9GiB
+동시 실행 가능 6개 < 후보 15개 — 나눠서 돈다.
+[p02] 5.820°  (best epoch 2, val 5.925°, 3.9분)
+[p03] 5.976°  (best epoch 8, val 6.279°, 3.9분)
+[p04] 7.017°  (best epoch 10, val 5.554°, 6.5분)
+[p05] 5.960°  (best epoch 14, val 5.953°, 6.6분)
+[p08] 6.518°  (best epoch 1, val 6.318°, 3.9분)
+[p09] 7.150°  (best epoch 1, val 5.320°, 3.9분)
+[p01] 4.868°  (best epoch 1, val 5.709°, 10.5분)
+[p00] 4.171°  (best epoch 8, val 4.897°, 10.8분)
+[p06] 5.760°  (best epoch 4, val 5.858°, 10.9분)
+[p07] 6.626°  (best epoch 6, val 6.424°, 10.9분)
+[p14] 6.053°  (best epoch 7, val 4.059°, 1.9분)
+[p10] 7.275°  (best epoch 3, val 5.458°, 6.5분)
+[p11] 6.383°  (best epoch 14, val 5.617°, 6.5분)
+[p12] 5.569°  (best epoch 11, val 5.862°, 7.8분)
+[p13] 6.672°  (best epoch 6, val 4.633°, 7.8분)
+
+전체 15.7분
+
+| 방법 | p00 | p01 | p02 | p03 | p04 | p05 | p06 | p07 | p08 | p09 | p10 | p11 | p12 | p13 | p14 | 평균 |
+|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|
+| GazeNet (numpy) | 4.17 | 4.87 | 5.82 | 5.98 | 7.02 | 5.96 | 5.76 | 6.63 | 6.52 | 7.15 | 7.27 | 6.38 | 5.57 | 6.67 | 6.05 | **6.12** |
+
+mean 6.121°  std 0.813°  min 4.17° (p00)  max 7.27° (p10)
+→ results/final/predictions.npz
+
+→ results/final/lopo.json
+→ results/final/curves.png

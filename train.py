@@ -344,7 +344,10 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
 
 
 def _worker(args):
-    cfg, person, log_dir, fold_dir = args
+    cfg, person, log_dir, fold_dir, device_id = args
+    if device_id is not None:
+        from common.backend import xp
+        xp.cuda.Device(device_id).use()   # fold를 GPU 여러 장에 나눠 건다
     result = train_fold(cfg, person, log_dir=log_dir, fold_dir=fold_dir, verbose=False)
     print(f"[{person}] {result['test_error']:.3f}°  "
           f"(best epoch {result['best_epoch']}, val {result['val_error']:.3f}°, "
@@ -352,13 +355,18 @@ def _worker(args):
     return result
 
 
-def run(cfg: Config, folds: list[str], jobs: int, log_dir: str, fold_dir: str) -> list[dict]:
+def run(cfg: Config, folds: list[str], jobs: int, log_dir: str, fold_dir: str,
+        per_gpu: int = 2, min_free: float = 8.0) -> list[dict]:
+    from common.backend import pick_devices
+
+    devices = pick_devices(len(folds), per_gpu, min_free)
     if jobs == 1:
         return [train_fold(cfg, p, log_dir=log_dir, fold_dir=fold_dir) for p in folds]
 
     from multiprocessing import get_context
     with get_context("spawn").Pool(jobs) as pool:
-        return pool.map(_worker, [(cfg, p, log_dir, fold_dir) for p in folds])
+        return pool.map(_worker, [(cfg, p, log_dir, fold_dir, d)
+                                  for p, d in zip(folds, devices)])
 
 
 def report(cfg: Config, results: list[dict], out_dir: str) -> None:
@@ -431,6 +439,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--folds", nargs="*", default=list(PERSONS), help="기본값은 15 fold 전부")
     p.add_argument("--jobs", type=int, default=15, help="동시에 돌릴 fold 수")
+    p.add_argument("--per-gpu", type=int, default=2, help="GPU 한 장에 동시에 올릴 fold 수")
+    p.add_argument("--min-free", type=float, default=8.0, help="쓸 GPU의 최소 여유 메모리 (GiB)")
     p.add_argument("--epochs", type=int, default=Config.epochs)
     p.add_argument("--batch-size", type=int, default=Config.batch_size)
     p.add_argument("--lr", type=float, default=Config.lr)
@@ -463,7 +473,7 @@ def main() -> None:
     print(f"fold별 진행 상황: {log_dir}/pXX.log")
     print(f"fold별 가중치·예측: {fold_dir}/pXX.npz\n")
     t0 = time.perf_counter()
-    results = run(cfg, args.folds, jobs, log_dir, fold_dir)
+    results = run(cfg, args.folds, jobs, log_dir, fold_dir, args.per_gpu, args.min_free)
     print(f"\n전체 {(time.perf_counter() - t0) / 60:.1f}분")
     report(cfg, results, args.out)
 

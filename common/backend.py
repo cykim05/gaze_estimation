@@ -65,3 +65,30 @@ def describe() -> str:
     name = xp.cuda.runtime.getDeviceProperties(dev.id)["name"].decode()
     return (f"GPU {dev.id} {name} (cupy {xp.__version__}, "
             f"여유 {free / 2**30:.1f}/{total / 2**30:.1f} GiB)")
+
+
+def pick_devices(n_jobs: int, per_gpu: int = 2, min_free_gib: float = 6.0) -> list:
+    """후보를 GPU에 나눠 준다. **여유 메모리를 보고** 고른다.
+
+    라운드로빈으로 돌렸다가 작업이 OOM으로 죽었다. SLURM이 할당해 준 GPU라도
+    노드를 다른 사용자와 나눠 쓰면 한 장이 거의 꽉 차 있을 수 있다. 할당받은
+    장 수만 세지 말고 실제로 비어 있는지를 봐야 한다.
+    """
+    if not on_gpu():
+        return [None] * n_jobs
+
+    free = []
+    for i in range(xp.cuda.runtime.getDeviceCount()):
+        with xp.cuda.Device(i):
+            free.append(xp.cuda.runtime.memGetInfo()[0] / 2**30)
+
+    usable = [i for i, g in enumerate(free) if g >= min_free_gib]
+    print("GPU 여유: " + ", ".join(f"{i}={g:.1f}GiB{'' if g >= min_free_gib else ' (제외)'}"
+                                   for i, g in enumerate(free)))
+    if not usable:
+        raise SystemExit(f"여유 {min_free_gib}GiB 이상인 GPU가 없다.")
+
+    slots = [d for d in usable for _ in range(per_gpu)]
+    if len(slots) < n_jobs:
+        print(f"동시 실행 가능 {len(slots)}개 < 후보 {n_jobs}개 — 나눠서 돈다.")
+    return [slots[i % len(slots)] for i in range(n_jobs)]

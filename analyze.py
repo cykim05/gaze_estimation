@@ -189,7 +189,7 @@ def describe_bias(pred, gaze, err) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--out", default="results/base")
+    p.add_argument("--out", default="results/final")
     args = p.parse_args()
 
     _use_korean_font()

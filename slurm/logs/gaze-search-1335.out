@@ -4,3 +4,40 @@ GPU 여유: 0=35.9GiB, 1=6.0GiB (제외), 2=44.0GiB, 3=26.2GiB
 개발용 fold p00 · 후보 20개 · 20 epoch · worker 6개 · 쓰는 GPU [0, 2, 3]
 테스트 오차는 계산하지 않는다 (track_test=False)
 
+  plain (1차 설정) · seed 3   검증 5.260°  (epoch  4, 학습 손실 0.1592, 3.8분, gpu2)
+  plain (1차 설정) · seed 2   검증 5.153°  (epoch  4, 학습 손실 0.1596, 3.8분, gpu2)
+  dropout 0.5 · seed 1     검증 5.164°  (epoch 13, 학습 손실 0.0894, 6.9분, gpu3)
+  dropout 0.5 · seed 0     검증 4.897°  (epoch  8, 학습 손실 0.1415, 6.9분, gpu3)
+  plain (1차 설정) · seed 1   검증 5.302°  (epoch  5, 학습 손실 0.1344, 7.6분, gpu0)
+  plain (1차 설정) · seed 0   검증 5.225°  (epoch  2, 학습 손실 0.2304, 7.6분, gpu0)
+  reg · seed 0             검증 4.810°  (epoch  8, 학습 손실 0.1943, 3.9분, gpu2)
+  reg · seed 1             검증 5.116°  (epoch  6, 학습 손실 0.2145, 3.9분, gpu2)
+  dropout 0.5 · seed 2     검증 5.033°  (epoch 12, 학습 손실 0.0977, 7.8분, gpu0)
+  dropout 0.5 · seed 3     검증 4.937°  (epoch  5, 학습 손실 0.1838, 7.9분, gpu0)
+  reg · seed 2             검증 5.146°  (epoch  8, 학습 손실 0.1935, 7.4분, gpu3)
+  reg · seed 3             검증 5.100°  (epoch  4, 학습 손실 0.2448, 7.4분, gpu3)
+  reg + adv 1.0 · seed 2   검증 5.084°  (epoch  3, 학습 손실 2.7916, 3.9분, gpu2)
+  reg + adv 1.0 · seed 3   검증 5.167°  (epoch  8, 학습 손실 2.7163, 3.9분, gpu2)
+  reg + adv 1.0 · seed 0   검증 4.864°  (epoch  8, 학습 손실 2.7168, 9.0분, gpu0)
+  reg + adv 1.0 · seed 1   검증 4.915°  (epoch  9, 학습 손실 2.7088, 9.1분, gpu0)
+  reg + mixup 0.2 · seed 0 검증 4.957°  (epoch  7, 학습 손실 0.2161, 7.1분, gpu3)
+  reg + mixup 0.2 · seed 1 검증 5.068°  (epoch 13, 학습 손실 0.1705, 7.1분, gpu3)
+  reg + mixup 0.2 · seed 2 검증 5.114°  (epoch  2, 학습 손실 0.2981, 8.0분, gpu0)
+  reg + mixup 0.2 · seed 3 검증 5.126°  (epoch 15, 학습 손실 0.1667, 8.0분, gpu0)
+
+23.7분
+
+순위  설정                         평균      표준편차   n   개별 값
+1   reg + adv 1.0          5.008°    0.142°   4   4.86 4.91 5.08 5.17
+2   dropout 0.5            5.008°    0.119°   4   4.90 4.94 5.03 5.16
+3   reg                    5.043°    0.156°   4   4.81 5.10 5.12 5.15
+4   reg + mixup 0.2        5.066°    0.077°   4   4.96 5.07 5.11 5.13
+5   plain (1차 설정)          5.235°    0.063°   4   5.15 5.22 5.26 5.30
+
+실행 간 표준편차(합산) 0.117°
+1위 reg + adv 1.0 5.008°
+  vs dropout 0.5          +0.000°  (평균 차 / 표준오차  0.0) → 구분 불가
+  vs reg                  +0.035°  (평균 차 / 표준오차  0.3) → 구분 불가
+  vs reg + mixup 0.2      +0.058°  (평균 차 / 표준오차  0.7) → 구분 불가
+  vs plain (1차 설정)        +0.227°  (평균 차 / 표준오차  2.9) → 유의
+→ results/search-final/search.json
