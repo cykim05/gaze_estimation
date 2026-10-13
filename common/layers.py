@@ -281,10 +281,12 @@ class BatchNormalization:
 
 
 class Dropout:
-    def __init__(self, ratio=0.5):
+    """seed를 받는다. 받지 않으면 실행마다 결과가 달라져 재현이 안 된다."""
+
+    def __init__(self, ratio=0.5, seed=None):
         self.ratio = ratio
         self.mask = None
-        self.rng = np.random.default_rng()
+        self.rng = np.random.default_rng(seed)
 
     def forward(self, x, train_flg=True):
         if not train_flg:

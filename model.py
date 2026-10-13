@@ -64,7 +64,9 @@ class GazeNet:
         bn_fc = BatchNormalization(hidden)
         self._add("fc", fc)
         self._add("bn_fc", bn_fc)
-        self.image_layers += [fc, bn_fc, Relu(), Dropout(dropout)]
+        # 가중치 초깃값과 다른 흐름을 쓰도록 seed를 갈라 준다
+        self.image_layers += [fc, bn_fc, Relu(),
+                              Dropout(dropout, seed=None if seed is None else seed + 1)]
 
         # head pose를 이어 붙인 뒤의 두 층. 마지막은 활성화 없이 그대로 (yaw, pitch).
         fuse = Affine(he_normal((hidden + HEAD_DIM, joint), hidden + HEAD_DIM, rng),
