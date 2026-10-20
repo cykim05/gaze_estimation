@@ -9,6 +9,8 @@
   3. 테스트로 고른 흔적이 없는지 (train.py/search.py에서 test를 선택에 쓰는 경로)
   4. [진단용] 태그 누락 — 테스트 라벨·메타데이터를 쓰는 분석 모듈에 태그가 있는지
   5. GPU 2장 규칙 — sacct로 동시 RUNNING 구간을 재구성
+  6. 색인 완전성 — 디스크의 모든 그림·표가 report_assets/README.md에 있는지
+  7. FINDINGS의 모든 '…°' 수치가 생성된 산출물에 실제로 있는지
 """
 from __future__ import annotations
 
@@ -114,6 +116,50 @@ def check_index_complete():
     ok(not ghost, f"색인에만 있고 파일이 없는 그림: {ghost}")
 
 
+def check_findings_traceable():
+    """FINDINGS.md에 적힌 모든 '…°' 값이 생성된 산출물에 실제로 있는가.
+
+    손으로 적어 넣은 수치가 재실행 뒤 낡거나(seed가 늘어났을 때), 애초에 다른 필드에서
+    잘못 읽혀 들어오는 것을 잡는다. 실제로 이 검사가 들어오자마자 `final_test_error`
+    (마지막 epoch)를 `test_error`(검증으로 고른 epoch) 자리에 적어 둔 값 1건을 찾았다.
+    """
+    print("\n7. FINDINGS 수치 추적 가능성")
+    txt = open("report_assets/FINDINGS.md", encoding="utf-8").read()
+    claims = sorted({m.group(1) for m in re.finditer(r"(\d+\.\d{2,4})\s*°", txt)},
+                    key=float)
+
+    pool = set()
+
+    def add(v):
+        if isinstance(v, bool):
+            return
+        if isinstance(v, (int, float)):
+            for n in (2, 3, 4):
+                pool.add(f"{abs(float(v)):.{n}f}")
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                add(x)
+
+    for v in json.load(open("report_assets/numbers.json", encoding="utf-8")).values():
+        add(v)
+    for f in (glob.glob("report_assets/tables/*.csv")
+              + glob.glob("report_assets/figures/*.csv")):
+        for tok in re.findall(r"-?\d+\.?\d*(?:e-?\d+)?",
+                              open(f, encoding="utf-8").read()):
+            try:
+                add(float(tok))
+            except ValueError:
+                pass
+
+    def norm(x):
+        return x.rstrip("0").rstrip(".")
+
+    have = {norm(x) for x in pool}
+    miss = [c for c in claims if norm(c) not in have]
+    print(f"  '…°' 값 {len(claims)}개 중 산출물에서 확인 {len(claims) - len(miss)}개")
+    ok(not miss, f"산출물에 없는 FINDINGS 수치: {miss}")
+
+
 def check_gpu_limit():
     print("\n5. GPU 2장 규칙 (sacct로 동시 구간 재구성)")
     try:
@@ -162,6 +208,7 @@ def run():
     check_diag_tags()
     check_gpu_limit()
     check_index_complete()
+    check_findings_traceable()
     print("\n" + "=" * 76)
     print("검수 통과" if not FAIL else f"검수 실패 {len(FAIL)}건: {FAIL}")
     if FAIL:

@@ -88,12 +88,13 @@ def run():
         verdict = "seed 잡음 범위" if pct < 95 else "잡음보다 큼"
         print(f"{label:<18}{d0:>+14.3f}{rm['delta']:>+18.3f}"
               f"{pct:>13.0f}%{verdict:>12}")
-        rows.append([label, round(float(d0), 4), round(float(rm["delta"]), 4),
+        rows.append([label, round(float(v.mean()), 4), round(float(d0), 4),
+                     round(float(rm["delta"]), 4),
                      round(float(rm["se"]), 4), sig(rm["p"]),
                      round(pct, 1), verdict])
 
     save_table("a18_ablation_vs_seed_null",
-               ["item", "delta_vs_seed0", "delta_vs_seed_mean", "se", "p",
+               ["item", "mean_deg", "delta_vs_seed0", "delta_vs_seed_mean", "se", "p",
                 "percentile_in_null", "verdict"], rows)
     put_numbers(
         a18_n_base_seeds=len(seeds),
@@ -108,18 +109,23 @@ def run():
     ax.axvspan(-np.abs(null_d).max(), np.abs(null_d).max(), color="#dce6f1",
                label=f"같은 설정 seed 쌍의 |Δ| 범위 (n={len(null_d)})")
     ax.axvline(0, lw=0.8, c="k")
+    # 열 위치가 아니라 이름으로 꺼낸다 (열을 추가해도 그림이 어긋나지 않게).
+    I = {name: i for i, name in enumerate(
+        ["item", "mean_deg", "delta_vs_seed0", "delta_vs_seed_mean", "se", "p",
+         "percentile_in_null", "verdict"])}
+    deltas = [r[I["delta_vs_seed_mean"]] for r in rows]
+    ses = [abs(r[I["se"]]) for r in rows]
     for i, r in enumerate(rows):
-        ax.scatter(r[2], i, s=45, c="#c0504d" if r[6] == "잡음보다 큼" else "#1f4e79",
-                   zorder=3)
-        ax.errorbar(r[2], i, xerr=r[3], fmt="none", ecolor="#1f4e79", capsize=3)
-    ax.set_yticks(range(len(rows)), [r[0] for r in rows], fontsize=7)
+        ax.scatter(deltas[i], i, s=45,
+                   c="#c0504d" if r[I["verdict"]] == "잡음보다 큼" else "#1f4e79", zorder=3)
+        ax.errorbar(deltas[i], i, xerr=ses[i], fmt="none", ecolor="#1f4e79", capsize=3)
+    ax.set_yticks(range(len(rows)), [r[I["item"]] for r in rows], fontsize=7)
     ax.set(xlabel="기준(seed 평균) 대비 LOPO 오차 변화 Δ (°)")
     ax.invert_yaxis(); ax.legend(fontsize=6)
     save_fig(fig, "31_ablation_vs_null.png",
-             {"item": [r[0] for r in rows], "delta": [r[2] for r in rows],
-              "se": [r[3] for r in rows]})
+             {"item": [r[I["item"]] for r in rows], "delta": deltas, "se": ses})
 
-    max_ab = max(abs(r[2]) for r in rows)
+    max_ab = max(abs(d) for d in deltas)
     print(f"\n결론: 설정을 하나도 바꾸지 않고 seed만 바꿔도 15-fold 평균이 최대 "
           f"{np.abs(null_d).max():.3f}° 흔들린다. ablation 8개의 Δ(seed 평균 기준)는 "
           f"최대 {max_ab:.3f}°로 모두 그 폭 안에 있다 — 즉 이 중 어느 변형도 "
