@@ -1,0 +1,16 @@
+노드 hai-iclr · GPU 0 · 작업 1790
+  batch  per-gpu   samples/s   epoch s      카드당 배수   util%   mem MiB
+Traceback (most recent call last):
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/bench_throughput.py", line 142, in <module>
+    main()
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/bench_throughput.py", line 123, in main
+    util, mem = smi.stop()
+                ^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/bench_throughput.py", line 46, in stop
+    self.join(timeout=3)
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/threading.py", line 1153, in join
+    self._wait_for_tstate_lock(timeout=max(timeout, 0))
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/threading.py", line 1171, in _wait_for_tstate_lock
+    self._stop()
+TypeError: 'Event' object is not callable
+srun: error: hai-iclr: task 0: Exited with exit code 1

@@ -105,9 +105,17 @@ FINAL = {
     "reg + mixup 0.2":    dict(dropout=0.35, weight_decay=3e-4, augment=True, mixup=0.2),
 }
 
+# B1 (PREREG 2절). lr = 2e-3*sqrt(B/128), B>=512는 첫 epoch linear warmup.
+# epoch 예산 20 고정. 테스트는 계산하지 않는다.
+BATCH = {
+    f"batch {b}": dict(batch_size=b, lr=2e-3 * (b / 128) ** 0.5,
+                       warmup_epochs=1.0 if b >= 512 else 0.0, dropout=0.5)
+    for b in (128, 256, 512, 1024)
+}
+
 PRESETS = {"regularization": REGULARIZATION, "capacity": CAPACITY,
            "schedule": SCHEDULE, "generalization": GENERALIZATION,
-           "seeds": SEEDS, "final": FINAL}
+           "seeds": SEEDS, "final": FINAL, "batch": BATCH}
 
 SEED_SEP = " · seed "
 

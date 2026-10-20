@@ -1,0 +1,117 @@
+[
+  {
+    "batch": 128,
+    "per_gpu": 1,
+    "samples_per_s": 8749.206045690722,
+    "epoch_s_per_worker": 4.111001593992114,
+    "wall_s": 5.563274347921833,
+    "gain_vs_per_gpu1": 1.0,
+    "util_pct": 62.833333333333336,
+    "mem_mib": 1033.0
+  },
+  {
+    "batch": 128,
+    "per_gpu": 2,
+    "samples_per_s": 13038.51523866001,
+    "epoch_s_per_worker": 5.330597311607562,
+    "wall_s": 12.810576778836548,
+    "gain_vs_per_gpu1": 1.490251249149849,
+    "util_pct": 62.30769230769231,
+    "mem_mib": 1636.923076923077
+  },
+  {
+    "batch": 128,
+    "per_gpu": 3,
+    "samples_per_s": 9205.907094740496,
+    "epoch_s_per_worker": 11.310840363691872,
+    "wall_s": 17.499610302969813,
+    "gain_vs_per_gpu1": 1.0521991420324035,
+    "util_pct": 74.0,
+    "mem_mib": 3002.176470588235
+  },
+  {
+    "batch": 256,
+    "per_gpu": 1,
+    "samples_per_s": 8525.66252249064,
+    "epoch_s_per_worker": 4.203778874129057,
+    "wall_s": 5.6566660278476775,
+    "gain_vs_per_gpu1": 1.0,
+    "util_pct": 69.33333333333333,
+    "mem_mib": 1566.6666666666667
+  },
+  {
+    "batch": 256,
+    "per_gpu": 2,
+    "samples_per_s": 8193.153819803094,
+    "epoch_s_per_worker": 8.688335004495457,
+    "wall_s": 13.290263017872348,
+    "gain_vs_per_gpu1": 0.9609990775719317,
+    "util_pct": 70.46153846153847,
+    "mem_mib": 3110.6153846153848
+  },
+  {
+    "batch": 256,
+    "per_gpu": 3,
+    "samples_per_s": 8409.902845350847,
+    "epoch_s_per_worker": 12.408379941945896,
+    "wall_s": 17.800864794990048,
+    "gain_vs_per_gpu1": 0.9864222074431847,
+    "util_pct": 77.76470588235294,
+    "mem_mib": 4860.705882352941
+  },
+  {
+    "batch": 512,
+    "per_gpu": 1,
+    "samples_per_s": 7944.032737787537,
+    "epoch_s_per_worker": 4.511562475003302,
+    "wall_s": 5.792829795042053,
+    "gain_vs_per_gpu1": 1.0,
+    "util_pct": 88.83333333333333,
+    "mem_mib": 2951.3333333333335
+  },
+  {
+    "batch": 512,
+    "per_gpu": 2,
+    "samples_per_s": 7298.456930396398,
+    "epoch_s_per_worker": 9.821253960952163,
+    "wall_s": 12.061901146080345,
+    "gain_vs_per_gpu1": 0.9187344981195362,
+    "util_pct": 83.33333333333333,
+    "mem_mib": 5810.333333333333
+  },
+  {
+    "batch": 512,
+    "per_gpu": 3,
+    "samples_per_s": 7736.315550262997,
+    "epoch_s_per_worker": 13.71638591797091,
+    "wall_s": 18.09360446804203,
+    "gain_vs_per_gpu1": 0.9738524255399291,
+    "util_pct": 86.05882352941177,
+    "mem_mib": 8916.588235294117
+  },
+  {
+    "batch": 1024,
+    "per_gpu": 1,
+    "samples_per_s": 7617.637462416358,
+    "epoch_s_per_worker": 4.704870791872963,
+    "wall_s": 6.482836452079937,
+    "gain_vs_per_gpu1": 1.0,
+    "util_pct": 85.28571428571429,
+    "mem_mib": 3450.8571428571427
+  },
+  {
+    "batch": 1024,
+    "per_gpu": 2,
+    "samples_per_s": 7058.142796085108,
+    "epoch_s_per_worker": 10.035629934980534,
+    "wall_s": 12.62533608614467,
+    "gain_vs_per_gpu1": 0.9265527311989228,
+    "util_pct": 91.75,
+    "mem_mib": 10682.333333333334
+  },
+  {
+    "batch": 1024,
+    "per_gpu": 3,
+    "error": "OutOfMemoryError('Out of memory allocating 955,514,880 bytes (allocated so far: 4,021,394,432 bytes, limit set to: 4,766,570,905 bytes).')"
+  }
+]

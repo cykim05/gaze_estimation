@@ -1,0 +1,31 @@
+노드 hai-iclr · GPU 0 · 작업 1793
+0, NVIDIA L40S, 14 MiB, 46068 MiB
+fold 15개 · worker 2개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 44.0/44.4 GiB)
+Config(epochs=20, batch_size=128, lr=0.002, lr_final_ratio=0.02, dropout=0.5, weight_decay=0.0, augment=False, warmup_epochs=0.0, loss='mse', kernel=3, n_pools=None, use_head=True, pixel_norm=False, norm='batch', mixup=0.0, ema=0.0, adv=0.0, dro=0.0, conv_channels=(24, 48, 96), hidden=256, joint=96, n_val_persons=2, seed=0)
+fold별 진행 상황: results/p1_seed0/logs/pXX.log
+fold별 가중치·예측: results/p1_seed0/folds/pXX.npz
+
+GPU 여유: 0=44.0GiB
+동시 실행 가능 2개 < 후보 15개 — 나눠서 돈다.
+[gpu] 메모리 상한 13.3GiB (여유 43.5/44.4GiB)
+[gpu] 메모리 상한 13.3GiB (여유 43.1/44.4GiB)
+[p02] 5.820°  (best epoch 2, val 5.925°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p00] 4.171°  (best epoch 8, val 4.897°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p03] 5.976°  (best epoch 8, val 6.279°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p01] 4.868°  (best epoch 1, val 5.709°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p04] 7.017°  (best epoch 10, val 5.554°, 3.8분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p06] 5.760°  (best epoch 4, val 5.858°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p05] 5.960°  (best epoch 14, val 5.953°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p07] 6.626°  (best epoch 6, val 6.424°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p08] 6.518°  (best epoch 1, val 6.318°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)
+[p10] 7.275°  (best epoch 3, val 5.458°, 3.9분)
+[gpu] 메모리 상한 13.3GiB (여유 38.5/44.4GiB)

@@ -1,0 +1,12 @@
+# Phase 2 작업 목록. 한 줄이 15-fold 1회. 앞에서부터 우선순위.
+# 형식: <이름> <train.py 추가 인자...>
+p1_seed1   --seed 1
+p1_seed2   --seed 2
+ab_nohead  --seed 0 --no-head
+ab_pixnorm --seed 0 --pixel-norm
+ab_angular --seed 0 --loss angular
+ab_l1      --seed 0 --loss l1
+ab_k5      --seed 0 --kernel 5
+ab_pool2   --seed 0 --n-pools 2
+p4_seed3   --seed 3
+p4_seed4   --seed 4

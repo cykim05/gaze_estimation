@@ -1,0 +1,10 @@
+[p11] GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 38.5/44.4 GiB)  학습 36000 / 검증 6000 / 테스트 3000
+[p11] epoch  1/20  loss 0.3581  val 6.108°  test 4.763° *  (0.2분)
+[p11] epoch  2/20  loss 0.2427  val 6.171°  test 5.156°  (0.4분)
+[p11] epoch  3/20  loss 0.2081  val 5.893°  test 5.312° *  (0.6분)
+[p11] epoch  4/20  loss 0.1861  val 5.644°  test 5.336° *  (0.8분)
+[p11] epoch  5/20  loss 0.1663  val 5.884°  test 6.413°  (1.0분)
+[p11] epoch  6/20  loss 0.1491  val 5.861°  test 5.071°  (1.2분)
+[p11] epoch  7/20  loss 0.1362  val 5.907°  test 6.702°  (1.4분)
+[p11] epoch  8/20  loss 0.1261  val 5.808°  test 5.570°  (1.5분)
+[p11] epoch  9/20  loss 0.1146  val 5.641°  test 5.526° *  (1.7분)
