@@ -1,0 +1,4 @@
+seeds_per_arm,min_detectable_delta_deg,se_median_deg
+1,0.3528,0.11708
+2,0.2571,0.08532
+3,0.2154,0.07148

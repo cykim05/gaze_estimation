@@ -47,6 +47,7 @@ report_assets/
 | `diag_30_appearance_offset.png` | offset이 눈 생김새로 보이나 (음성 결과) | `diag_30_appearance_offset.csv` | `analysis/a17_appearance.py` |
 | `31_ablation_vs_null.png` | ablation Δ가 seed만 바꿔도 나는 폭보다 큰가 | `31_ablation_vs_null.csv` | `analysis/a18_ablation_null.py` |
 | `32_literature_anchor.png` | 문헌 수치와 우리 수치를 나란히 놓을 수 있나 | `32_literature_anchor.csv` | `analysis/a19_literature_anchor.py` |
+| `33_seed_power.png` | ablation 하나를 판정하려면 seed가 몇 개 필요한가 | `33_seed_power.csv` | `analysis/a20_power.py` |
 
 ## 표
 
@@ -75,6 +76,7 @@ report_assets/
 | `a17_appearance_pcs_runB` | 눈 외모 주성분 ↔ offset [진단용] | `analysis/a17_appearance.py` |
 | `a18_ablation_vs_seed_null` | ablation Δ와 같은 설정 seed 쌍의 경험적 귀무 | `analysis/a18_ablation_null.py` |
 | `a19_literature_anchor`, `a19_subset_identity` | 문헌 앵커 불일치와 평가 집합 동일성 | `analysis/a19_literature_anchor.py` |
+| `a20_seed_power`, `a20_asymmetric_cost` | seed 수별 최소 검출 가능 Δ와 GPU 비용 | `analysis/a20_power.py` |
 | `a4_epoch_ensemble_p1s0` | epoch-ensemble K 후보의 검증 오차 | `analysis/a4_selection.py` |
 | `a10_disagree_component_runB` | seed 간 불일치의 성분 분해 | `analysis/a10_labelfree.py` |
 

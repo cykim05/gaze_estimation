@@ -310,5 +310,18 @@
   "final_model_epoch_K": 8,
   "a15_yaw_shared_frac_inf": 0.9091,
   "a15_pitch_shared_frac_inf": 0.9171,
-  "a15_n_seeds": 7
+  "a15_n_seeds": 7,
+  "a20_required_t_ratio": 3.0133,
+  "a20_se_1_seed": 0.11708,
+  "a20_mde_1_seed": 0.3528,
+  "a20_se_max_arm": 0.07148,
+  "a20_mde_max_arm": 0.2154,
+  "a20_seeds_per_arm_max": 3,
+  "a20_power_at_015_max_arm": 0.4976,
+  "a20_seeds_needed_for_015": null,
+  "a20_model_c": 0.000823,
+  "a20_model_k": 0.006444,
+  "a20_se_floor": 0.02869,
+  "a20_mde_floor": 0.0864,
+  "a20_asym_mde_3_seeds": 0.188
 }
