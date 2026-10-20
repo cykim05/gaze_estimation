@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from analysis.common import (DEG, FIG, PERSONS, angular_error, load_run, pearson,
+from analysis.common import (sig, DEG, FIG, PERSONS, angular_error, load_run, pearson,
                              plt, put_numbers, save_fig, save_table, section)
 
 
@@ -52,7 +52,7 @@ def run(run_dir="results/final", tag="runB"):
         f"{tag}_offset_recovery_deg": round(float(err.mean() - oracle.mean()), 4),
         f"{tag}_offset_recovery_pct": round(float(1 - oracle.mean() / err.mean()), 4),
         f"{tag}_offset_mag_vs_folderr_r": round(r, 4),
-        f"{tag}_offset_mag_vs_folderr_p": round(pv, 5),
+        f"{tag}_offset_mag_vs_folderr_p": sig(pv),
         f"{tag}_offset_mag_max": round(float(mag.max()), 4),
         f"{tag}_offset_mag_max_person": PERSONS[int(mag.argmax())],
     })

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from analysis.common import (PERSONS, angular_error, load_folds, load_run, paired,
+from analysis.common import (sig, PERSONS, angular_error, load_folds, load_run, paired,
                              plt, put_numbers, save_fig, save_table, section, spearman)
 
 DEV_FOLD = "p00"
@@ -51,7 +51,7 @@ def run(run_dir="results/p1_seed0", tag="p1s0"):
             f"{tag}_sel_last_epoch": round(float(last.mean()), 4),
             f"{tag}_sel_oracle_epoch": round(float(oracle.mean()), 4),
             f"{tag}_sel_val_vs_last_delta": round(float(r["delta"]), 4),
-            f"{tag}_sel_val_vs_last_p": round(float(r["p"]), 5),
+            f"{tag}_sel_val_vs_last_p": sig(r["p"]),
             f"{tag}_sel_val_test_spearman_median": round(float(np.median(rhos)), 4),
         })
         save_table(f"a4_epoch_selection_{tag}",
@@ -127,7 +127,7 @@ def run(run_dir="results/p1_seed0", tag="p1s0"):
         f"{tag}_epoch_ens_K": best_k,
         f"{tag}_epoch_ens_mean": round(float(ens[best_k].mean()), 4),
         f"{tag}_epoch_ens_delta_vs_valsel": round(float(r_best["delta"]), 4),
-        f"{tag}_epoch_ens_p": round(float(r_best["p"]), 5),
+        f"{tag}_epoch_ens_p": sig(r_best["p"]),
         f"{tag}_epoch_ens_by_K": {str(k): round(float(ens[k].mean()), 4)
                                   for k in K_CANDIDATES},
     })
@@ -137,11 +137,11 @@ def run(run_dir="results/p1_seed0", tag="p1s0"):
                 + [round(float(chosen.mean()), 4), None, None]]
                + [["마지막 epoch"] + [round(float(v), 3) for v in last]
                   + [round(float(last.mean()), 4), round(float(r_last["delta"]), 4),
-                     round(float(r_last["p"]), 5)]]
+                     sig(r_last["p"])]]
                + [[f"epoch-ens K={k}"] + [round(float(v), 3) for v in ens[k]]
                   + [round(float(ens[k].mean()), 4),
                      round(float(paired(ens[k], chosen)["delta"]), 4),
-                     round(float(paired(ens[k], chosen)["p"]), 5)]
+                     sig(paired(ens[k], chosen)["p"])]
                   for k in K_CANDIDATES])
 
     fig, axes = plt.subplots(1, 2, figsize=(8.6, 3.2))

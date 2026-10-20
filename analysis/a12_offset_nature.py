@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from analysis.common import (DEG, PERSONS, load_run, pearson, plt, put_numbers,
+from analysis.common import (sig, DEG, PERSONS, load_run, pearson, plt, put_numbers,
                              save_fig, save_table, section)
 
 FLIP = np.array([-1.0, 1.0], dtype=np.float32)
@@ -89,7 +89,7 @@ def run(run_dir="results/final", tag="runB"):
         same = int((np.sign(off_l[:, k]) == np.sign(off_r[:, k])).sum())
         print(f"  {axis:<6} 좌 ↔ 우 상관 r = {r:+.3f} (p={pv:.4f}), "
               f"부호 일치 {same}/15명")
-        rows_h2.append([axis, round(r, 4), round(pv, 5), same])
+        rows_h2.append([axis, round(r, 4), sig(pv), same])
         put_numbers(**{f"{tag}_a12_lr_offset_{axis}_r": round(r, 4),
                        f"{tag}_a12_lr_offset_{axis}_sign_match": same})
     save_table(f"a12_h2_left_right_{tag}",

@@ -11,7 +11,7 @@ import os
 
 import numpy as np
 
-from analysis.common import (PERSONS, load_run, pearson, plt, put_numbers,
+from analysis.common import (sig, PERSONS, load_run, pearson, plt, put_numbers,
                              save_fig, save_table, section, spearman)
 
 
@@ -50,7 +50,7 @@ def run():
             rho, pv = spearman(runs[names[i]], runs[names[j]])
             rp, _ = pearson(runs[names[i]], runs[names[j]])
             print(f"  {names[i]:<26} ↔ {names[j]:<26} ρ={rho:+.3f} (p={pv:.4f})  r={rp:+.3f}")
-            pairs.append([names[i], names[j], round(rho, 4), round(pv, 5), round(rp, 4)])
+            pairs.append([names[i], names[j], round(rho, 4), sig(pv), round(rp, 4)])
     save_table("a7_run_rank_correlation",
                ["run_a", "run_b", "spearman", "p", "pearson"], pairs)
 
@@ -67,7 +67,7 @@ def run():
     for name in names:
         r, pv = pearson(mag, runs[name])
         print(f"  {name:<26} r = {r:+.3f}  p = {pv:.4f}")
-        rows.append([name, round(r, 4), round(pv, 5)])
+        rows.append([name, round(r, 4), sig(pv)])
     save_table("a7_offset_vs_folderr", ["run", "pearson_r", "p"], rows)
 
     put_numbers(

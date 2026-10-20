@@ -18,7 +18,7 @@ import os
 
 import numpy as np
 
-from analysis.common import (DEG, PERSONS, angular_error, load_folds, load_run,
+from analysis.common import (sig, DEG, PERSONS, angular_error, load_folds, load_run,
                              pearson, plt, put_numbers, save_fig, save_table, section)
 
 FLIP = np.array([-1.0, 1.0], dtype=np.float32)
@@ -49,16 +49,16 @@ def run(run_dir="results/final", tag="runB"):
     li, ri = np.array(li), np.array(ri)
     disagree = DEG(pred[li] - pred[ri] * FLIP)        # (쌍, 2) 라벨을 안 쓴다
 
-    sig = {}
-    sig["S1 좌우 불일치 |평균|"] = np.array([
+    signals = {}
+    signals["S1 좌우 불일치 |평균|"] = np.array([
         np.hypot(*disagree[person[li] == p].mean(0)) for p in PERSONS])
-    sig["S1b 좌우 불일치 yaw 평균"] = np.array([
+    signals["S1b 좌우 불일치 yaw 평균"] = np.array([
         disagree[person[li] == p][:, 0].mean() for p in PERSONS])
-    sig["S1c 좌우 불일치 pitch 평균"] = np.array([
+    signals["S1c 좌우 불일치 pitch 평균"] = np.array([
         disagree[person[li] == p][:, 1].mean() for p in PERSONS])
-    sig["S2 예측 표준편차"] = np.array([
+    signals["S2 예측 표준편차"] = np.array([
         DEG(pred[person == p]).std(0).mean() for p in PERSONS])
-    sig["S3 예측 평균 이탈"] = np.array([
+    signals["S3 예측 평균 이탈"] = np.array([
         np.hypot(*(DEG(pred[person == p]).mean(0) - DEG(pred).mean(0))) for p in PERSONS])
 
     # S4 특징 거리 (특징이 저장된 실행에서만)
@@ -68,13 +68,13 @@ def run(run_dir="results/final", tag="runB"):
         for p in PERSONS:
             ft, fr = feats[p]["feat_test"], feats[p]["feat_train"]
             s4.append(float(np.linalg.norm(ft.mean(0) - fr.mean(0))))
-        sig["S4 특징 거리"] = np.array(s4)
+        signals["S4 특징 거리"] = np.array(s4)
     else:
         print("  (S4: 특징이 저장되지 않은 실행이라 건너뛴다)")
 
     print(f"\n{'신호':<26}{'↔ |offset|':>14}{'↔ fold 오차':>15}")
     rows = []
-    for name, v in sig.items():
+    for name, v in signals.items():
         r1, p1 = pearson(np.abs(v) if "yaw" in name or "pitch" in name else v, off_mag)
         r2, p2 = pearson(np.abs(v) if "yaw" in name or "pitch" in name else v, fold_err)
         star1 = "*" if p1 < 0.05 else " "
@@ -90,9 +90,9 @@ def run(run_dir="results/final", tag="runB"):
         r, pv = pearson(s, DEG(off[:, k]))
         print(f"  {axis:<6} r = {r:+.3f}  p = {pv:.4f}  "
               f"{'← 라벨 없이 offset 방향을 안다' if pv < 0.05 else ''}")
-        comp.append([axis, round(r, 4), round(pv, 5)])
+        comp.append([axis, round(r, 4), sig(pv)])
         put_numbers(**{f"{tag}_a10_disagree_vs_offset_{axis}_r": round(r, 4),
-                       f"{tag}_a10_disagree_vs_offset_{axis}_p": round(pv, 5)})
+                       f"{tag}_a10_disagree_vs_offset_{axis}_p": sig(pv)})
 
     save_table(f"a10_labelfree_signals_{tag}",
                ["signal", "r_vs_offset_mag", "p_vs_offset_mag",

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from analysis.common import (DEG, PERSONS, load_run, pearson, plt, put_numbers,
+from analysis.common import (sig, DEG, PERSONS, load_run, pearson, plt, put_numbers,
                              save_fig, save_table, section)
 
 N_PC = 4
@@ -44,7 +44,7 @@ def run(run_dir="results/final", tag="runB"):
         row = [f"PC{k+1}", round(float(var[k]), 4)]
         for j in range(2):
             r, pv = pearson(scores[:, k], off[:, j])
-            row += [round(r, 4), round(pv, 5)]
+            row += [round(r, 4), sig(pv)]
         rows.append(row)
     save_table(f"a17_appearance_pcs_{tag}",
                ["pc", "var_frac", "r_offset_yaw", "p_yaw", "r_offset_pitch", "p_pitch"],
@@ -65,7 +65,7 @@ def run(run_dir="results/final", tag="runB"):
         print(f"  {axis:<6} 예측 ↔ 실제 r = {r:+.3f} (p={pv:.3f})   "
               f"RMSE {rmse:.2f}° (상수 예측 {base_rmse:.2f}°)")
         put_numbers(**{f"{tag}_a17_loo_{axis}_r": round(r, 4),
-                       f"{tag}_a17_loo_{axis}_p": round(pv, 5),
+                       f"{tag}_a17_loo_{axis}_p": sig(pv),
                        f"{tag}_a17_loo_{axis}_rmse": round(rmse, 4),
                        f"{tag}_a17_loo_{axis}_rmse_base": round(base_rmse, 4)})
 

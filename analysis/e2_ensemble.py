@@ -10,7 +10,7 @@ import os
 
 import numpy as np
 
-from analysis.common import (PERSONS, angular_error, load_folds, load_run, paired,
+from analysis.common import (sig, PERSONS, angular_error, load_folds, load_run, paired,
                              plt, put_numbers, save_fig, save_table, section)
 
 DEV_FOLD = "p00"
@@ -121,7 +121,7 @@ def run(pattern=("results/p1_seed*", "results/p4_seed*")):
         table_rows.append([name] + [round(float(x), 3) for x in v]
                           + [round(float(v.mean()), 4), round(float(r["delta"]), 4),
                              round(float(r["se"]), 4), round(float(r["t"]), 3),
-                             round(float(r["p"]), 5)])
+                             sig(r["p"])])
 
     print(f"\n단일 모델 seed 간 편차: 평균 {single_errs.mean(1).mean():.3f}°, "
           f"실행별 {np.round(single_errs.mean(1), 3)}")

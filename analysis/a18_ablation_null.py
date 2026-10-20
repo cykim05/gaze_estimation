@@ -14,7 +14,7 @@ import os
 
 import numpy as np
 
-from analysis.common import (PERSONS, angular_error, load_folds, load_run, paired,
+from analysis.common import (sig, PERSONS, angular_error, load_folds, load_run, paired,
                              plt, put_numbers, save_fig, save_table, section)
 
 ABLATIONS = {
@@ -89,7 +89,7 @@ def run():
         print(f"{label:<18}{d0:>+14.3f}{rm['delta']:>+18.3f}"
               f"{pct:>13.0f}%{verdict:>12}")
         rows.append([label, round(float(d0), 4), round(float(rm["delta"]), 4),
-                     round(float(rm["se"]), 4), round(float(rm["p"]), 5),
+                     round(float(rm["se"]), 4), sig(rm["p"]),
                      round(pct, 1), verdict])
 
     save_table("a18_ablation_vs_seed_null",

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dataset import PERSONS
 from metrics import angular_error
+from analysis.common import sig
 
 OUT = {}
 
@@ -70,7 +71,7 @@ def f1_person_offset(run: str, tag: str) -> None:
     OUT[f"{tag}_offset_oracle_error"] = round(float(oracle.mean()), 4)
     OUT[f"{tag}_offset_recovery_deg"] = round(float(err.mean() - oracle.mean()), 4)
     OUT[f"{tag}_offset_mag_vs_folderr_r"] = round(float(r), 4)
-    OUT[f"{tag}_offset_mag_vs_folderr_p"] = round(float(p_val), 5)
+    OUT[f"{tag}_offset_mag_vs_folderr_p"] = sig(p_val)
     OUT[f"{tag}_person_offsets_deg"] = {p: [round(float(dy), 4), round(float(dp), 4)]
                                         for p, dy, dp, _, _ in rows}
 

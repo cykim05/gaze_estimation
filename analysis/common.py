@@ -91,6 +91,18 @@ def paired(a: np.ndarray, b: np.ndarray) -> dict:
             "significant": bool(p < 0.05)}
 
 
+def sig(x, n: int = 3) -> float:
+    """유효숫자 n자리로 줄인다.
+
+    p값에 round(x, 5)를 쓰면 1.2e-09가 0.0이 되고 7.1e-06이 1e-05가 된다.
+    절대 규칙 6("반올림으로 의미를 바꾸지 않는다")에 걸리므로 이쪽을 쓴다.
+    """
+    x = float(x)
+    if not np.isfinite(x) or x == 0.0:
+        return x
+    return float(f"{x:.{n}g}")
+
+
 def fmt_paired(name: str, r: dict) -> str:
     mark = "유의" if r["significant"] else "구분 불가"
     return (f"{name:<28}{r['mean_a']:>8.3f}{r['delta']:>+9.3f}{r['se']:>8.3f}"

@@ -9,7 +9,7 @@ import os
 
 import numpy as np
 
-from analysis.common import (PERSONS, angular_error, load_folds, load_run, paired,
+from analysis.common import (sig, PERSONS, angular_error, load_folds, load_run, paired,
                              plt, put_numbers, save_table, save_fig, section)
 
 # PREREG 4절에 적은 사전 예상
@@ -83,13 +83,13 @@ def multiseed_stage() -> dict:
               f"{r['delta']:>+14.3f}{r['se']:>8.3f}{r['p']:>9.4f}{single:>+15.3f}  {v}")
         rows.append([PREDICTION[key][0], len(var), round(float(var.mean()), 4),
                      round(float(r["delta"]), 4), round(float(r["se"]), 4),
-                     round(float(r["p"]), 5), round(float(r["wilcoxon_p"]), 5),
+                     sig(r["p"]), sig(r["wilcoxon_p"]),
                      round(float(single), 4), v])
         put_numbers(**{f"e3p5_{key}_n_seeds": len(var),
                        f"e3p5_{key}_mean": round(float(var.mean()), 4),
                        f"e3p5_{key}_delta": round(float(r["delta"]), 4),
                        f"e3p5_{key}_se": round(float(r["se"]), 4),
-                       f"e3p5_{key}_p": round(float(r["p"]), 5),
+                       f"e3p5_{key}_p": sig(r["p"]),
                        f"e3p5_{key}_delta_single_seed": round(float(single), 4)})
         out[key] = r
     if len(rows) >= 2:
@@ -125,8 +125,8 @@ def verdict(delta: float, p: float) -> str:
 
 
 def matches(expect: str, delta: float, p: float) -> str:
-    sig = p < 0.05
-    got = "none" if not sig else ("worse" if delta > 0 else "better")
+    is_sig = p < 0.05
+    got = "none" if not is_sig else ("worse" if delta > 0 else "better")
     if expect == "none":
         return "일치" if got == "none" else "어긋남"
     if expect == "worse":
@@ -166,7 +166,7 @@ def run():
             absorbed.append((label, r))
         rows.append([label, pred_text, round(float(errs.mean()), 4),
                      round(float(r["delta"]), 4), round(float(r["se"]), 4),
-                     round(float(r["p"]), 5), v, agree,
+                     sig(r["p"]), v, agree,
                      "흡수" if take else ("유지" if r["p"] >= 0.05 else "기각")])
         # 중앙값도 (L1 예측 확인용)
         rm = paired(med, base_med)
@@ -174,9 +174,9 @@ def run():
             f"e3_{key}_mean": round(float(errs.mean()), 4),
             f"e3_{key}_delta": round(float(r["delta"]), 4),
             f"e3_{key}_se": round(float(r["se"]), 4),
-            f"e3_{key}_p": round(float(r["p"]), 5),
+            f"e3_{key}_p": sig(r["p"]),
             f"e3_{key}_median_delta": round(float(rm["delta"]), 4),
-            f"e3_{key}_median_p": round(float(rm["p"]), 5),
+            f"e3_{key}_median_p": sig(rm["p"]),
         })
 
     save_table("e3_ablation",
