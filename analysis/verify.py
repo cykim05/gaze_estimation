@@ -96,6 +96,24 @@ def check_diag_tags():
     print(f"  diag_ 접두 그림 {len(diag_figs)}개: {sorted(diag_figs)}")
 
 
+def check_index_complete():
+    """디스크에 있는 모든 그림·표가 report_assets/README.md 색인에 적혀 있는가."""
+    print("\n6. 색인 완전성 (README.md ↔ 디스크)")
+    idx = open("report_assets/README.md", encoding="utf-8").read()
+    figs = sorted(os.path.basename(f) for f in glob.glob("report_assets/figures/*.png"))
+    tabs = sorted(os.path.basename(f)[:-3] for f in glob.glob("report_assets/tables/*.md"))
+    miss_f = [f for f in figs if f"`{f}`" not in idx]
+    miss_t = [t for t in tabs if f"`{t}`" not in idx]
+    print(f"  그림 {len(figs)}개, 표 {len(tabs)}개")
+    ok(not miss_f, f"색인에 없는 그림: {miss_f}")
+    ok(not miss_t, f"색인에 없는 표: {miss_t}")
+    # 반대 방향 — 색인에 있는데 파일이 없는 것
+    import re
+    named = set(re.findall(r"`([A-Za-z0-9_]+\.png)`", idx))
+    ghost = sorted(named - set(figs))
+    ok(not ghost, f"색인에만 있고 파일이 없는 그림: {ghost}")
+
+
 def check_gpu_limit():
     print("\n5. GPU 2장 규칙 (sacct로 동시 구간 재구성)")
     try:
@@ -140,6 +158,7 @@ if __name__ == "__main__":
     check_no_test_selection()
     check_diag_tags()
     check_gpu_limit()
+    check_index_complete()
     print("\n" + "=" * 76)
     print("검수 통과" if not FAIL else f"검수 실패 {len(FAIL)}건: {FAIL}")
     sys.exit(0 if not FAIL else 1)

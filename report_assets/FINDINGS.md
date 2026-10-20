@@ -70,7 +70,7 @@ offset의 크기·oracle 수치는 테스트 사람의 라벨로 계산한 **[�
 
 ### 핵심 수치
 
-ablation 표는 `tables/e3_ablation.md`에 있다 (Phase 2 결과로 채운다).
+ablation 표는 `tables/e3_ablation.md`에 있다.
 각 행은 **항목 · EDA의 예측 · Δ±SE · p · 예측 일치 여부 · 최종 모델 흡수 여부**다.
 
 이미 확정된 두 가지:
@@ -514,6 +514,37 @@ A12에서 pitch offset이 사람 수준 상수처럼 행동했으므로, 해부�
 
 → **예측 기반 분석을 모두 `results/final`로 한정했고**, `analysis/check_consistency.py`를
 만들어 새 결과마다 통과시킨다. 분석을 시작하기 전에 입력을 검증해야 한다는 교훈.
+
+### E-7 문헌의 5.4°와 우리 5.68°를 나란히 놓을 수 없다 — 앵커 불일치
+
+보고서에 "GazeNet 5.4° / MnistNet 5.5°"를 적어 두고 우리 5.68°를 옆에 놓고 싶어진다.
+비교가 성립하는지 두 가지를 측정했다 (`a19_literature_anchor`).
+
+| 확인 | 우리 평가 집합 | Zhang et al., TPAMI 2019 (arXiv:1711.09017) | 결과 |
+|---|---|---|---|
+| gaze yaw 1~99%p | [−18.25°, +18.15°] | 본문 Sec. III-B "[−18, +18] degrees in the horizontal" | **0.25° 안에서 일치** |
+| gaze pitch 1~99%p | [−19.12°, +1.62°] | 본문 Sec. III-B "[−1.5, 20] degrees in the vertical" | 부호 규약만 반대, **0.88° 안에서 일치** |
+| 평균 gaze 예측기 LOPO 오차 | **9.214°** | 본문 Sec. V-A2 "always outputs the average gaze direction ... becomes 13.9 degrees" | **1.51배 어긋남** |
+
+앞의 두 줄은 **같은 45,000장(1,500×2×15)을 보고 있다**는 뜻이다. 그런데 세 번째 줄은
+모델과 전혀 무관하게 라벨만으로 계산되는 양인데도 4.7° 차이가 난다. 데이터가 같다면
+이 차이는 데이터로 설명되지 않는다.
+
+그 논문은 **13.9°라는 같은 숫자를 두 군데에서 다른 뜻으로 쓴다**: Abstract에서는
+cross-dataset state of the art("from a mean error of 13.9 degrees to 10.8 degrees"),
+Sec. V-A2에서는 within-dataset 평균 예측기. 그런데 Sec. V-A1은 cross-dataset 평균
+예측기를 34.2°로 따로 적는다. 즉 둘 중 하나는 잘못 들어간 값이고, **어느 쪽이든 우리는
+그 앵커를 재현할 수 없다.**
+
+→ **처리**: 문헌 수치는 "이 과제의 보고값이 5~6° 자리수"라는 맥락으로만 인용하고,
+우열 주장에는 쓰지 않는다. 우리가 주장하는 모든 비교는 한 평가 집합 안에 있다
+(하한선 9.21° → ridge 7.27° → 단일 5.94° → ensemble 5.68°). 보고서에 문헌 표를 넣을
+경우 이 앵커 불일치를 같은 표 아래에 적어야 한다. `figures/32_literature_anchor.png`,
+`tables/a19_{literature_anchor,subset_identity}.md`
+
+부수 효과: 이 재계산이 `final_table.py`에 하드코딩돼 있던 하한선 15개 값을 라벨에서
+독립적으로 다시 만들어 **최대 불일치 0.000°**로 확인해 주었다. 이제 그 검사가
+`a19`에 assert로 박혀 있어, 하한선이 바뀌면 파이프라인이 멈춘다.
 
 ---
 

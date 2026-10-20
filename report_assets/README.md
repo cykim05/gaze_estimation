@@ -41,6 +41,12 @@ report_assets/
 | `24_interpretation.png` | 모델은 이미지의 어디를 보나 | `24_interpretation.csv` | `analysis/a8_interpret.py` |
 | `diag_25_offset_nature.png` | offset은 해부학적 상수인가 분포 이동인가 | `diag_25_offset_nature.csv` | `analysis/a12_offset_nature.py` |
 | `diag_26_variance_layers.png` | 남은 오차 중 얼마가 원리적으로 줄어드나 | `diag_26_variance_layers.csv` | `analysis/a13_noisefloor.py` |
+| `diag_27_coverage.png` | 학습 데이터가 덮지 않는 gaze 영역에서 오차가 커지나 | `diag_27_coverage.csv` | `analysis/a14_coverage.py` |
+| `28_ensemble_mechanism.png` | seed-ensemble은 무엇을 지우고 무엇을 남기나 | `28_ensemble_mechanism.csv` | `analysis/a15_ensemble_mechanism.py` |
+| `diag_29_abstain.png` | 모델이 자기 오차를 미리 알 수 있나 (음성 결과) | `diag_29_abstain.csv` | `analysis/a16_abstain.py` |
+| `diag_30_appearance_offset.png` | offset이 눈 생김새로 보이나 (음성 결과) | `diag_30_appearance_offset.csv` | `analysis/a17_appearance.py` |
+| `31_ablation_vs_null.png` | ablation Δ가 seed만 바꿔도 나는 폭보다 큰가 | `31_ablation_vs_null.csv` | `analysis/a18_ablation_null.py` |
+| `32_literature_anchor.png` | 문헌 수치와 우리 수치를 나란히 놓을 수 있나 | `32_literature_anchor.csv` | `analysis/a19_literature_anchor.py` |
 
 ## 표
 
@@ -60,8 +66,16 @@ report_assets/
 | `a9_throughput_grid` | batch × per-gpu 처리량 | `analysis/a9_efficiency.py` |
 | `a10_labelfree_signals_runB` | 라벨 없는 신호들의 상관 | `analysis/a10_labelfree.py` |
 | `a11_zeroshot_runB`, `a11_perfold_runB` | 라벨 0장 재중심화 [진단용] | `analysis/a11_zeroshot.py` |
-| `a12_h1_day_stability_runB` 외 2 | offset의 정체 검증 [진단용] | `analysis/a12_offset_nature.py` |
+| `a12_h1_day_stability_runB`, `a12_h2_left_right_runB`, `a12_h3_behaviour_runB` | offset의 정체 검증 — 날짜 안정성 / 좌우눈 공유 / head pose 습관 [진단용] | `analysis/a12_offset_nature.py` |
 | `a13_variance_layers_runB` | 잔차 분산 3층 분해 [진단용] | `analysis/a13_noisefloor.py` |
+| `a14_density_runB` | 학습 gaze 밀도 구간별 오차 [진단용] | `analysis/a14_coverage.py` |
+| `a15_offset_seed_corr`, `a15_variance_shared_vs_seed` | offset이 seed를 넘어 공유되는 정도 | `analysis/a15_ensemble_mechanism.py` |
+| `a16_abstain_runB` | 불확실도 신호별 선택적 예측 성능 [진단용] | `analysis/a16_abstain.py` |
+| `a17_appearance_pcs_runB` | 눈 외모 주성분 ↔ offset [진단용] | `analysis/a17_appearance.py` |
+| `a18_ablation_vs_seed_null` | ablation Δ와 같은 설정 seed 쌍의 경험적 귀무 | `analysis/a18_ablation_null.py` |
+| `a19_literature_anchor`, `a19_subset_identity` | 문헌 앵커 불일치와 평가 집합 동일성 | `analysis/a19_literature_anchor.py` |
+| `a4_epoch_ensemble_p1s0` | epoch-ensemble K 후보의 검증 오차 | `analysis/a4_selection.py` |
+| `a10_disagree_component_runB` | seed 간 불일치의 성분 분해 | `analysis/a10_labelfree.py` |
 
 ## 실험 기록
 
