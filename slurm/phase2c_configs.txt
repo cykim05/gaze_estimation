@@ -1,0 +1,6 @@
+# P5 (PREREG 4·5절) — 기준 대비 0.15° 이상 차이 난 항목에 seed를 더한다.
+# 대상: 풀링 2회(-0.250, p=0.011 흡수 후보), 픽셀별 정규화(-0.203), head pose 제거(-0.176)
+ab_pool2_s1    --seed 1 --n-pools 2
+ab_pool2_s2    --seed 2 --n-pools 2
+ab_pixnorm_s1  --seed 1 --pixel-norm
+ab_nohead_s1   --seed 1 --no-head

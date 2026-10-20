@@ -182,7 +182,7 @@
     6.1211,
     5.9526
   ],
-  "e3_absorbed": null,
+  "e3_absorbed": "풀링 3회 → 2회",
   "final_single_mean": 6.1211,
   "final_single_seed_means": [
     6.1211
@@ -234,10 +234,23 @@
   "e3_ab_l1_p": 0.40754,
   "e3_ab_l1_median_delta": -0.0939,
   "e3_ab_l1_median_p": 0.23216,
-  "a18_n_base_seeds": 2,
-  "a18_null_abs_delta_median": 0.1685,
-  "a18_null_abs_delta_max": 0.1685,
+  "a18_n_base_seeds": 4,
+  "a18_null_abs_delta_median": 0.1063,
+  "a18_null_abs_delta_max": 0.2127,
   "a18_null_signif_pairs": 0,
-  "a18_null_n_pairs": 1,
-  "a18_base_seed_sd": 0.1191
+  "a18_null_n_pairs": 6,
+  "a18_base_seed_sd": 0.0993,
+  "e3_ab_k5_mean": 6.0613,
+  "e3_ab_k5_delta": -0.0598,
+  "e3_ab_k5_se": 0.104,
+  "e3_ab_k5_p": 0.57464,
+  "e3_ab_k5_median_delta": -0.0663,
+  "e3_ab_k5_median_p": 0.59154,
+  "e3_ab_pool2_mean": 5.8707,
+  "e3_ab_pool2_delta": -0.2504,
+  "e3_ab_pool2_se": 0.0859,
+  "e3_ab_pool2_p": 0.0113,
+  "e3_ab_pool2_median_delta": -0.2719,
+  "e3_ab_pool2_median_p": 0.01847,
+  "e3_absorbed_delta": -0.2504
 }
