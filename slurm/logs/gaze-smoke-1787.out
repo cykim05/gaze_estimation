@@ -1,0 +1,48 @@
+노드 hai-iclr · GPU 0 · 작업 1787
+0, NVIDIA L40S, 14 MiB, 46068 MiB
+fold 2개 · worker 2개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 44.0/44.4 GiB)
+Config(epochs=1, batch_size=128, lr=0.002, lr_final_ratio=0.02, dropout=0.5, weight_decay=0.0, augment=False, warmup_epochs=0.0, loss='mse', kernel=3, n_pools=None, use_head=True, pixel_norm=False, norm='batch', mixup=0.0, ema=0.0, adv=0.0, dro=0.0, conv_channels=(24, 48, 96), hidden=256, joint=96, n_val_persons=2, seed=0)
+fold별 진행 상황: results/smoke/logs/pXX.log
+fold별 가중치·예측: results/smoke/folds/pXX.npz
+
+GPU 여유: 0=44.0GiB
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 446, in _worker
+    result = train_fold(cfg, person, log_dir=log_dir, fold_dir=fold_dir,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 399, in train_fold
+    sub = train.take(to_device(idx))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/dataset.py", line 48, in take
+    person=self.person[index],
+           ~~~~~~~~~~~^^^^^^^
+  File "cupy/_core/core.pyx", line 1807, in cupy._core.core._ndarray_base.__array__
+TypeError: Implicit conversion to a NumPy array is not allowed. Please use `.get()` to construct a NumPy array explicitly.
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 598, in <module>
+    main()
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 591, in main
+    results = run(cfg, args.folds, jobs, log_dir, fold_dir, args.per_gpu,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/hai_chanyoung/26-2/gaze_estimation/train.py", line 466, in run
+    return pool.map(_worker, [(cfg, p, log_dir, fold_dir, d, save_features)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/hai_chanyoung/miniconda3/envs/gaze/lib/python3.12/multiprocessing/pool.py", line 774, in get
+    raise self._value
+TypeError: Implicit conversion to a NumPy array is not allowed. Please use `.get()` to construct a NumPy array explicitly.
+srun: error: hai-iclr: task 0: Exited with exit code 1

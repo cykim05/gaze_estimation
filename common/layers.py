@@ -483,3 +483,77 @@ class WeightedMeanSquaredError:
         if self.w is None:
             return dout * diff / self.y.shape[0]
         return dout * diff * self.w[:, None]
+
+
+class L1Loss:
+    """평균 절대 오차. 꼬리가 긴 오차 분포에서 MSE보다 이상치에 덜 끌린다."""
+
+    def __init__(self):
+        self.y = None
+        self.t = None
+        self.w = None
+
+    def forward(self, y, t, w=None):
+        self.y, self.t, self.w = y, t, w
+        per_sample = np.abs(y - t).sum(axis=1)
+        return float(per_sample.mean()) if w is None else float((w * per_sample).sum())
+
+    def per_sample(self):
+        return np.abs(self.y - self.t).sum(axis=1)
+
+    def backward(self, dout=1.0):
+        g = np.sign(self.y - self.t)
+        if self.w is None:
+            return dout * g / self.y.shape[0]
+        return dout * g * self.w[:, None]
+
+
+class AngularLoss:
+    """1 − cos(예측, 정답). 평가 지표(3D 사잇각)를 직접 최적화한다.
+
+    모델은 표준화된 (yaw, pitch)를 내므로, 손실 안에서 상수 mean·std로 라디안으로
+    되돌린 뒤 3D 단위 벡터로 바꾼다. 되돌리는 선형 변환의 기울기(std)가 역전파에
+    그대로 곱해지므로 최적화 조건은 MSE 때와 같게 유지된다.
+
+        g(yaw, pitch) = (−cos p·sin y, −sin p, −cos p·cos y),  |g| = 1
+        loss = 1 − <g(pred), g(target)>
+    """
+
+    def __init__(self, mean, std):
+        self.mean = mean      # (1, 2) 라디안
+        self.std = std        # (1, 2)
+        self.y = None
+        self.t = None
+        self.w = None
+        self._cache = None
+
+    @staticmethod
+    def _to3d(yaw, pitch):
+        cp, sp, cy, sy = np.cos(pitch), np.sin(pitch), np.cos(yaw), np.sin(yaw)
+        return np.stack([-cp * sy, -sp, -cp * cy], axis=-1), (cp, sp, cy, sy)
+
+    def forward(self, y, t, w=None):
+        self.y, self.t, self.w = y, t, w
+        yr = y * self.std + self.mean
+        tr = t * self.std + self.mean
+        a, cache = self._to3d(yr[:, 0], yr[:, 1])
+        b, _ = self._to3d(tr[:, 0], tr[:, 1])
+        self._cache = (cache, b)
+        per_sample = 1.0 - (a * b).sum(axis=1)
+        return float(per_sample.mean()) if w is None else float((w * per_sample).sum())
+
+    def per_sample(self):
+        (cp, sp, cy, sy), b = self._cache
+        a = np.stack([-cp * sy, -sp, -cp * cy], axis=-1)
+        return 1.0 - (a * b).sum(axis=1)
+
+    def backward(self, dout=1.0):
+        (cp, sp, cy, sy), b = self._cache
+        # ∂a/∂yaw, ∂a/∂pitch  (라디안 기준)
+        da_dyaw = np.stack([-cp * cy, np.zeros_like(cp), cp * sy], axis=-1)
+        da_dpitch = np.stack([sp * sy, -cp, sp * cy], axis=-1)
+        grad_rad = -np.stack([(b * da_dyaw).sum(1), (b * da_dpitch).sum(1)], axis=-1)
+        grad = grad_rad * self.std          # 표준화 좌표로 되돌린다
+        if self.w is None:
+            return dout * grad / self.y.shape[0]
+        return dout * grad * self.w[:, None]

@@ -26,8 +26,10 @@ from common.layers import (
     BatchNormalization,
     Convolution,
     Dropout,
+    AngularLoss,
     GradientReversal,
     GroupNormalization,
+    L1Loss,
     Pooling,
     Relu,
     SoftmaxWithLoss,
@@ -54,24 +56,36 @@ def he_normal(shape, fan_in, rng):
 class GazeNet:
     def __init__(self, conv_channels=(24, 48, 96), hidden=256, joint=96,
                  dropout=0.2, input_shape=EYE_SHAPE, norm="batch",
+                 kernel=3, n_pools=None, use_head=True, loss="mse",
+                 gaze_mean=None, gaze_std=None,
                  n_persons=0, adv_scale=1.0, adv_hidden=64, seed=None):
         rng = numpy.random.default_rng(seed)   # 초깃값은 장치와 무관해야 한다
         c_in, h, w = input_shape
         Norm = NORMS[norm]
         self.norm_name = norm
+        self.use_head = use_head
+        self.kernel = kernel
+        # 풀링을 거는 블록. 기본은 전부. n_pools를 줄이면 뒤쪽 블록부터 뺀다.
+        n_blocks = len(conv_channels)
+        n_pools = n_blocks if n_pools is None else n_pools
+        self.n_pools = n_pools
 
         self.image_layers: list = []
         self._named: list[tuple[str, object]] = []
 
+        k, pad = kernel, kernel // 2
         for i, c_out in enumerate(conv_channels, start=1):
             # 뒤에 BN이 오므로 편향을 두지 않는다. BN의 beta가 같은 일을 한다.
-            W = he_normal((c_out, c_in, 3, 3), c_in * 9, rng)
-            conv = Convolution(W, stride=1, pad=1)
+            W = he_normal((c_out, c_in, k, k), c_in * k * k, rng)
+            conv = Convolution(W, stride=1, pad=pad)
             bn = Norm(c_out)
             self._add(f"conv{i}", conv)
             self._add(f"bn{i}", bn)
-            self.image_layers += [conv, bn, Relu(), Pooling(2, 2)]
-            c_in, h, w = c_out, h // 2, w // 2
+            self.image_layers += [conv, bn, Relu()]
+            if i <= n_pools:
+                self.image_layers.append(Pooling(2, 2))
+                h, w = h // 2, w // 2
+            c_in = c_out
 
         flat = c_in * h * w
         fc = Affine(he_normal((flat, hidden), flat, rng))   # 뒤가 정규화라 편향 없음
@@ -83,7 +97,8 @@ class GazeNet:
                               Dropout(dropout, seed=None if seed is None else seed + 1)]
 
         # head pose를 이어 붙인 뒤의 두 층. 마지막은 활성화 없이 그대로 (yaw, pitch).
-        fuse = Affine(he_normal((hidden + HEAD_DIM, joint), hidden + HEAD_DIM, rng),
+        fuse_in = hidden + (HEAD_DIM if use_head else 0)
+        fuse = Affine(he_normal((fuse_in, joint), fuse_in, rng),
                       np.zeros(joint, dtype=DTYPE))
         out = Affine(he_normal((joint, OUT_DIM), joint, rng) * DTYPE(0.1),
                      np.zeros(OUT_DIM, dtype=DTYPE))
@@ -106,7 +121,16 @@ class GazeNet:
             self.person_layers = [GradientReversal(adv_scale), pw1, Relu(), pw2]
             self.person_loss = SoftmaxWithLoss()
 
-        self.last_layer = WeightedMeanSquaredError()
+        if loss == "mse":
+            self.last_layer = WeightedMeanSquaredError()
+        elif loss == "l1":
+            self.last_layer = L1Loss()
+        elif loss == "angular":
+            assert gaze_mean is not None, "angular loss는 gaze 표준화 통계가 필요하다"
+            self.last_layer = AngularLoss(to_device(gaze_mean), to_device(gaze_std))
+        else:
+            raise ValueError(f"모르는 손실: {loss}")
+        self.loss_name = loss
         self.feature_dim = hidden
         self.params = {f"{name}.{k}": v
                        for name, layer in self._named for k, v in layer.params.items()}
@@ -129,9 +153,14 @@ class GazeNet:
             dout = layer.backward(dout)
         return dout
 
+    def features(self, image, train_flg=False):
+        """마지막 완전연결 직전의 특징(기본 256차원). 해석 분석(A8)에서 쓴다."""
+        return self._forward(self.image_layers, image, train_flg)
+
     def predict(self, image, head, train_flg=False):
         self._feature = self._forward(self.image_layers, image, train_flg)
-        fused = np.concatenate([self._feature, head], axis=1)
+        fused = (np.concatenate([self._feature, head], axis=1)
+                 if self.use_head else self._feature)
         return self._forward(self.joint_layers, fused, train_flg)
 
     def loss(self, image, head, gaze, train_flg=True, weights=None, person=None) -> float:

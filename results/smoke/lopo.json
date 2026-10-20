@@ -1,0 +1,73 @@
+{
+  "config": {
+    "epochs": 1,
+    "batch_size": 128,
+    "lr": 0.002,
+    "lr_final_ratio": 0.02,
+    "dropout": 0.5,
+    "weight_decay": 0.0,
+    "augment": false,
+    "warmup_epochs": 0.0,
+    "loss": "mse",
+    "kernel": 3,
+    "n_pools": null,
+    "use_head": true,
+    "pixel_norm": false,
+    "norm": "batch",
+    "mixup": 0.0,
+    "ema": 0.0,
+    "adv": 0.0,
+    "dro": 0.0,
+    "conv_channels": [
+      24,
+      48,
+      96
+    ],
+    "hidden": 256,
+    "joint": 96,
+    "n_val_persons": 2,
+    "seed": 0
+  },
+  "results": [
+    {
+      "test_person": "p00",
+      "val_persons": [
+        "p01",
+        "p02"
+      ],
+      "test_error": 4.428035846417041,
+      "val_error": 5.477530134940762,
+      "best_epoch": 1,
+      "final_test_error": 4.428035846417041,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 0.3834015270463088,
+          "val": 5.477530134940762,
+          "test": 4.428035846417041
+        }
+      ],
+      "seconds": 13.66359417582862
+    },
+    {
+      "test_person": "p01",
+      "val_persons": [
+        "p02",
+        "p03"
+      ],
+      "test_error": 5.520547051357741,
+      "val_error": 6.122935838425365,
+      "best_epoch": 1,
+      "final_test_error": 5.520547051357741,
+      "history": [
+        {
+          "epoch": 1,
+          "loss": 0.3654395995721274,
+          "val": 6.122935838425365,
+          "test": 5.520547051357741
+        }
+      ],
+      "seconds": 13.157901941100135
+    }
+  ]
+}

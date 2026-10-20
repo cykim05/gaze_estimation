@@ -292,6 +292,24 @@ class ImageNorm:
     def __init__(self, mean: float, std: float):
         self.mean = np.float32(mean)
         self.std = np.float32(std)
+        self.pixelwise = False
+        self._device = None
+
+    @classmethod
+    def fit_pixelwise(cls, image: np.ndarray) -> "ImageNorm":
+        """픽셀 위치마다 따로 평균·표준편차를 뺀다 — ablation 용.
+
+        EDA 3.7 #2는 이것을 쓰지 말라고 했다. 정규화로 눈이 가운데 맞춰져 있어
+        위치별 평균을 빼면 학습 fold 사람들의 '평균 눈'을 빼는 셈이기 때문이다.
+        예측이 맞는지 확인하려고 구현해 둔다.
+        """
+        x = image.astype(np.float32) / 255.0
+        mean = x.mean(axis=0, keepdims=True)
+        std = x.std(axis=0, keepdims=True) + 1e-6
+        obj = cls(0.0, 1.0)
+        obj.mean, obj.std = mean, std
+        obj.pixelwise = True
+        return obj
 
     @classmethod
     def fit(cls, image: np.ndarray, sample=100_000, seed=0) -> "ImageNorm":
@@ -303,7 +321,10 @@ class ImageNorm:
 
     def __call__(self, image: np.ndarray) -> np.ndarray:
         """uint8도 Augment가 내놓은 float32(0~255 눈금)도 그대로 받는다."""
-        return (image.astype(np.float32) / np.float32(255.0) - self.mean) / self.std
+        if self.pixelwise and self._device is None:
+            self._device = (to_device(self.mean), to_device(self.std))
+        mean, std = self._device if self.pixelwise else (self.mean, self.std)
+        return (image.astype(np.float32) / np.float32(255.0) - mean) / std
 
 
 if __name__ == "__main__":

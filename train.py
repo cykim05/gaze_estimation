@@ -37,6 +37,9 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
              "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
     os.environ[_var] = THREADS_PER_FOLD
 
+# 공용 서버다. 한 job이 카드를 독차지하지 않도록 cupy 풀에 상한을 건다.
+GPU_MEM_FRACTION = float(os.environ.get("GAZE_GPU_FRACTION", "0.30"))
+
 import argparse
 import json
 import time
@@ -56,6 +59,12 @@ class Config:
     dropout: float = 0.2
     weight_decay: float = 0.0      # 가중치 행렬에만. bias·BN 파라미터는 건드리지 않는다
     augment: bool = False
+    warmup_epochs: float = 0.0     # 큰 배치에서 첫 구간 linear warmup
+    loss: str = "mse"              # mse | l1 | angular
+    kernel: int = 3                # conv 커널 크기 (ablation)
+    n_pools: int | None = None     # 풀링 횟수 (ablation). None이면 블록 수만큼
+    use_head: bool = True          # head pose 입력 사용 (ablation)
+    pixel_norm: bool = False       # 픽셀별 이미지 정규화 (ablation)
     norm: str = "batch"            # batch | group
     mixup: float = 0.0             # Beta(a, a)의 a. 0이면 끈다
     ema: float = 0.0               # 가중치 EMA 감쇠. 0이면 끈다
@@ -95,8 +104,14 @@ def split_persons(test: str, n_val: int, persons) -> tuple[list[str], list[str]]
     return [p for p in rest if p not in val], val
 
 
-def cosine_lr(step: int, total: int, lr: float, final_ratio: float) -> float:
-    return lr * (final_ratio + (1 - final_ratio) * 0.5 * (1 + np.cos(np.pi * step / total)))
+def cosine_lr(step: int, total: int, lr: float, final_ratio: float,
+              warmup_steps: float = 0.0) -> float:
+    """코사인 감쇠. warmup_steps가 있으면 그 구간은 0에서 lr까지 선형으로 올린다."""
+    if warmup_steps and step < warmup_steps:
+        return lr * (step + 1) / warmup_steps
+    if warmup_steps:
+        step, total = step - warmup_steps, total - warmup_steps
+    return lr * (final_ratio + (1 - final_ratio) * 0.5 * (1 + np.cos(np.pi * step / max(total, 1))))
 
 
 class _nullcontext:
@@ -195,9 +210,30 @@ def predict_all(net, samples, norms, batch_size=512) -> np.ndarray:
     return gaze_std.inverse(out)
 
 
+def _gpu_mem_gib() -> float:
+    from common.backend import on_gpu, xp
+    if not on_gpu():
+        return 0.0
+    return float(xp.get_default_memory_pool().used_bytes()) / 2 ** 30
+
+
+def _features_of(net, images, image_norm, batch_size=512):
+    """penultimate 특징을 배치로 뽑아 (N, hidden)으로 잇는다.
+
+    Samples가 아니라 이미지 배열을 직접 받는다. Samples.person은 CPU에 남겨
+    두었으므로 장치 인덱스로 .take를 하면 numpy/cupy가 섞여 터진다.
+    """
+    from common.backend import xp
+    out = []
+    for start in range(0, len(images), batch_size):
+        out.append(net.features(image_norm(images[start:start + batch_size]),
+                                train_flg=False))
+    return xp.concatenate(out)
+
+
 def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
                fold_dir: str | None = None, track_test: bool = True,
-               verbose: bool = True) -> dict:
+               save_features: bool = False, verbose: bool = True) -> dict:
     """fold 하나를 처음부터 학습하고 테스트 각도 오차를 돌려준다.
 
     병렬로 돌리면 stdout이 뒤섞이므로, log_dir이 있으면 fold마다 제 파일에 쓴다.
@@ -230,7 +266,8 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     test_cpu = all_samples.only(test_person)
 
     # 정규화 통계는 학습 12명에서만 뽑는다. 검증·테스트 사람은 쳐다보지 않는다.
-    norms = (ImageNorm.fit(train_cpu.image),
+    image_fit = ImageNorm.fit_pixelwise if cfg.pixel_norm else ImageNorm.fit
+    norms = (image_fit(train_cpu.image),
              Standardizer.fit(train_cpu.head),
              Standardizer.fit(train_cpu.gaze))
     image_norm, head_std, gaze_std = norms
@@ -246,6 +283,8 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
 
     net = GazeNet(conv_channels=cfg.conv_channels, hidden=cfg.hidden,
                   joint=cfg.joint, dropout=cfg.dropout, norm=cfg.norm,
+                  kernel=cfg.kernel, n_pools=cfg.n_pools, use_head=cfg.use_head,
+                  loss=cfg.loss, gaze_mean=gaze_std.mean, gaze_std=gaze_std.std,
                   n_persons=len(train_persons) if cfg.adv else 0,
                   adv_scale=cfg.adv, seed=cfg.seed)
     opt = Adam(lr=cfg.lr)
@@ -259,13 +298,21 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     dro = GroupDRO(len(train_persons), cfg.dro) if cfg.dro else None
 
     total_steps = cfg.epochs * len(batches)
+    warmup_steps = cfg.warmup_epochs * len(batches)
+    # 매 epoch 기록용. track_test는 **기록 전용**이고 어떤 선택에도 쓰지 않는다.
+    trace = {"val_pred": [], "test_pred": [], "person_resid": [],
+             "samples_per_s": [], "step_ms": [], "gpu_mem_gib": [], "lr": []}
+    val_person = val_cpu.person_array
+    import time as _time
     history, best = [], {"val": np.inf, "epoch": -1, "state": None}
     step = 0
 
     for epoch in range(1, cfg.epochs + 1):
         running, n_batch = 0.0, 0
+        synchronize()
+        epoch_t0 = _time.perf_counter()
         for image, head, gaze, person in batches:
-            opt.lr = cosine_lr(step, total_steps, cfg.lr, cfg.lr_final_ratio)
+            opt.lr = cosine_lr(step, total_steps, cfg.lr, cfg.lr_final_ratio, warmup_steps)
 
             if cfg.mixup:
                 # 섞고 나면 사람 라벨이 둘의 혼합이라 적대 head·GroupDRO와 같이 쓰지 않는다
@@ -289,14 +336,31 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
             n_batch += 1
 
         synchronize()
+        epoch_s = _time.perf_counter() - epoch_t0
+        seen = n_batch * cfg.batch_size
+        trace["samples_per_s"].append(seen / epoch_s)
+        trace["step_ms"].append(epoch_s / max(n_batch, 1) * 1000)
+        trace["gpu_mem_gib"].append(_gpu_mem_gib())
+        trace["lr"].append(float(opt.lr))
+
         # EMA를 쓰면 평가도 EMA 가중치로 한다. 그래야 고른 epoch와 쓰는 가중치가 같다.
         swap = ema.swapped(net.params) if ema is not None else _nullcontext()
         with swap:
-            val_err = mean_angular_error(predict_all(net, val, norms), val_cpu.gaze)
             # track_test=False면 테스트를 아예 계산하지 않는다. 설정을 고르는 동안
             # 테스트 숫자가 눈에 띄는 일 자체를 막는다.
-            test_err = mean_angular_error(predict_all(net, test, norms), test_cpu.gaze) \
+            val_pred = predict_all(net, val, norms)
+            val_err = mean_angular_error(val_pred, val_cpu.gaze)
+            test_pred = predict_all(net, test, norms) if track_test else None
+            test_err = mean_angular_error(test_pred, test_cpu.gaze) \
                 if track_test else float("nan")
+
+        trace["val_pred"].append(val_pred)
+        if test_pred is not None:
+            trace["test_pred"].append(test_pred)
+        # 사람별 평균 잔차 (검증 2명). 테스트가 아니라 검증 사람이므로 선택에 써도 된다.
+        resid = np.degrees(val_pred - val_cpu.gaze)
+        trace["person_resid"].append(
+            np.stack([resid[val_person == vp].mean(0) for vp in val_persons]))
         history.append({"epoch": epoch, "loss": running / n_batch,
                         "val": val_err, "test": test_err})
 
@@ -325,9 +389,34 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     # 나중에 다시 학습하지 않고 오차를 뜯어볼 수 있도록 예측과 가중치를 남긴다
     if fold_dir and pred is not None:
         os.makedirs(fold_dir, exist_ok=True)
-        np.savez_compressed(os.path.join(fold_dir, f"{test_person}.npz"),
-                            pred=pred, gaze=test_cpu.gaze, head=test_cpu.head,
-                            **{f"w.{k}": v for k, v in net.state_dict().items()})
+        extra = {}
+        if save_features:
+            extra["feat_test"] = to_cpu(_features_of(net, test.image, image_norm))
+            idx, who = [], []
+            rs = np.random.default_rng(0)
+            for i, tp in enumerate(train_persons):
+                where = np.flatnonzero(train_cpu.person_array == tp)
+                take = rs.choice(where, size=min(500, len(where)), replace=False)
+                idx.append(take); who.append(np.full(len(take), i))
+            idx = np.concatenate(idx)
+            extra["feat_train"] = to_cpu(
+                _features_of(net, train.image[to_device(idx)], image_norm))
+            extra["feat_train_person"] = np.concatenate(who)
+            extra["feat_train_persons"] = np.array(train_persons)
+        np.savez_compressed(
+            os.path.join(fold_dir, f"{test_person}.npz"),
+            pred=pred, gaze=test_cpu.gaze, head=test_cpu.head,
+            val_gaze=val_cpu.gaze, val_person=val_person,
+            trace_val_pred=np.asarray(trace["val_pred"], dtype=np.float32),
+            trace_test_pred=np.asarray(trace["test_pred"], dtype=np.float32),
+            trace_person_resid=np.asarray(trace["person_resid"], dtype=np.float32),
+            trace_samples_per_s=np.asarray(trace["samples_per_s"], dtype=np.float32),
+            trace_step_ms=np.asarray(trace["step_ms"], dtype=np.float32),
+            trace_gpu_mem_gib=np.asarray(trace["gpu_mem_gib"], dtype=np.float32),
+            trace_lr=np.asarray(trace["lr"], dtype=np.float32),
+            val_persons=np.array(val_persons),
+            **extra,
+            **{f"w.{k}": v for k, v in net.state_dict().items()})
     if log_file:
         log_file.close()
 
@@ -343,12 +432,29 @@ def train_fold(cfg: Config, test_person: str, log_dir: str | None = None,
     }
 
 
+def _limit_gpu_memory() -> None:
+    """공용 카드다. 총량의 일정 비율과 '지금 남은 양의 70%' 중 작은 쪽으로 묶는다.
+
+    남이 같은 카드를 쓰고 있으면 총량 기준 상한은 의미가 없다. 실제 여유를 봐야 한다.
+    """
+    from common.backend import on_gpu, xp
+    if not on_gpu():
+        return
+    free, total = xp.cuda.runtime.memGetInfo()
+    cap = int(min(total * GPU_MEM_FRACTION, free * 0.70))
+    xp.get_default_memory_pool().set_limit(size=cap)
+    print(f"[gpu] 메모리 상한 {cap / 2**30:.1f}GiB "
+          f"(여유 {free / 2**30:.1f}/{total / 2**30:.1f}GiB)", flush=True)
+
+
 def _worker(args):
-    cfg, person, log_dir, fold_dir, device_id = args
+    cfg, person, log_dir, fold_dir, device_id, save_features = args
     if device_id is not None:
         from common.backend import xp
         xp.cuda.Device(device_id).use()   # fold를 GPU 여러 장에 나눠 건다
-    result = train_fold(cfg, person, log_dir=log_dir, fold_dir=fold_dir, verbose=False)
+    _limit_gpu_memory()
+    result = train_fold(cfg, person, log_dir=log_dir, fold_dir=fold_dir,
+                        save_features=save_features, verbose=False)
     print(f"[{person}] {result['test_error']:.3f}°  "
           f"(best epoch {result['best_epoch']}, val {result['val_error']:.3f}°, "
           f"{result['seconds'] / 60:.1f}분)", flush=True)
@@ -356,16 +462,18 @@ def _worker(args):
 
 
 def run(cfg: Config, folds: list[str], jobs: int, log_dir: str, fold_dir: str,
-        per_gpu: int = 2, min_free: float = 8.0) -> list[dict]:
+        per_gpu: int = 2, min_free: float = 8.0, save_features: bool = False) -> list[dict]:
     from common.backend import pick_devices
 
     devices = pick_devices(len(folds), per_gpu, min_free)
     if jobs == 1:
-        return [train_fold(cfg, p, log_dir=log_dir, fold_dir=fold_dir) for p in folds]
+        _limit_gpu_memory()
+        return [train_fold(cfg, p, log_dir=log_dir, fold_dir=fold_dir,
+                           save_features=save_features) for p in folds]
 
     from multiprocessing import get_context
     with get_context("spawn").Pool(jobs) as pool:
-        return pool.map(_worker, [(cfg, p, log_dir, fold_dir, d)
+        return pool.map(_worker, [(cfg, p, log_dir, fold_dir, d, save_features)
                                   for p, d in zip(folds, devices)])
 
 
@@ -440,7 +548,17 @@ def main() -> None:
     p.add_argument("--folds", nargs="*", default=list(PERSONS), help="기본값은 15 fold 전부")
     p.add_argument("--jobs", type=int, default=15, help="동시에 돌릴 fold 수")
     p.add_argument("--per-gpu", type=int, default=2, help="GPU 한 장에 동시에 올릴 fold 수")
-    p.add_argument("--min-free", type=float, default=8.0, help="쓸 GPU의 최소 여유 메모리 (GiB)")
+    p.add_argument("--min-free", type=float, default=2.0, help="쓸 GPU의 최소 여유 메모리 (GiB)")
+    p.add_argument("--save-features", action="store_true", help="해석용 penultimate 특징 저장")
+    p.add_argument("--lr-rule", choices=["fixed", "sqrt"], default="fixed",
+                   help="sqrt면 lr = 2e-3 * sqrt(batch/128) (PREREG 2절)")
+    p.add_argument("--warmup-epochs", type=float, default=Config.warmup_epochs)
+    p.add_argument("--loss", choices=["mse", "l1", "angular"], default=Config.loss)
+    p.add_argument("--kernel", type=int, default=Config.kernel)
+    p.add_argument("--n-pools", type=int, default=None)
+    p.add_argument("--no-head", action="store_true", help="head pose 입력 제거 (ablation)")
+    p.add_argument("--pixel-norm", action="store_true", help="픽셀별 이미지 정규화 (ablation)")
+    p.add_argument("--seed", type=int, default=Config.seed)
     p.add_argument("--epochs", type=int, default=Config.epochs)
     p.add_argument("--batch-size", type=int, default=Config.batch_size)
     p.add_argument("--lr", type=float, default=Config.lr)
@@ -457,10 +575,17 @@ def main() -> None:
     p.add_argument("--out", default="results/base")
     args = p.parse_args()
 
-    cfg = Config(epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
+    lr = args.lr
+    if args.lr_rule == "sqrt":
+        lr = 2e-3 * np.sqrt(args.batch_size / 128)
+    cfg = Config(epochs=args.epochs, batch_size=args.batch_size, lr=lr,
                  dropout=args.dropout, weight_decay=args.weight_decay,
                  augment=args.augment, norm=args.norm, mixup=args.mixup,
-                 ema=args.ema, adv=args.adv, dro=args.dro)
+                 ema=args.ema, adv=args.adv, dro=args.dro,
+                 warmup_epochs=args.warmup_epochs, loss=args.loss,
+                 kernel=args.kernel, n_pools=args.n_pools,
+                 use_head=not args.no_head, pixel_norm=args.pixel_norm,
+                 seed=args.seed)
     jobs = min(args.jobs, len(args.folds))
 
     from common.backend import describe
@@ -473,7 +598,8 @@ def main() -> None:
     print(f"fold별 진행 상황: {log_dir}/pXX.log")
     print(f"fold별 가중치·예측: {fold_dir}/pXX.npz\n")
     t0 = time.perf_counter()
-    results = run(cfg, args.folds, jobs, log_dir, fold_dir, args.per_gpu, args.min_free)
+    results = run(cfg, args.folds, jobs, log_dir, fold_dir, args.per_gpu,
+                  args.min_free, args.save_features)
     print(f"\n전체 {(time.perf_counter() - t0) / 60:.1f}분")
     report(cfg, results, args.out)
 

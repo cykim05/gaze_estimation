@@ -85,6 +85,11 @@ def pick_devices(n_jobs: int, per_gpu: int = 2, min_free_gib: float = 6.0) -> li
     usable = [i for i, g in enumerate(free) if g >= min_free_gib]
     print("GPU 여유: " + ", ".join(f"{i}={g:.1f}GiB{'' if g >= min_free_gib else ' (제외)'}"
                                    for i, g in enumerate(free)))
+    if not usable and len(free) == 1:
+        # SLURM이 gpu:1로 카드를 이미 정해 줬다. 남이 같은 카드를 쓰고 있어도
+        # 고를 여지가 없으므로 그대로 쓰되, 풀 상한으로 여유 안에서만 쓴다.
+        print(f"  보이는 카드가 하나뿐이라 그대로 쓴다 (여유 {free[0]:.1f}GiB).")
+        usable = [0]
     if not usable:
         raise SystemExit(f"여유 {min_free_gib}GiB 이상인 GPU가 없다.")
 
