@@ -149,7 +149,10 @@ def check_gpu_limit():
        f"최대 동시 {peak}개 — 2 초과는 JOBS.md에 기록된 1건(40초)만 허용")
 
 
-if __name__ == "__main__":
+def run():
+    """모든 검사를 돌린다. 하나라도 실패하면 예외를 던진다 —
+    run_all.py가 '전부 성공'이라고 쓰기 전에 멈춰야 한다."""
+    FAIL.clear()
     print("=" * 76)
     print("Phase 4 검수")
     print("=" * 76)
@@ -161,4 +164,13 @@ if __name__ == "__main__":
     check_index_complete()
     print("\n" + "=" * 76)
     print("검수 통과" if not FAIL else f"검수 실패 {len(FAIL)}건: {FAIL}")
-    sys.exit(0 if not FAIL else 1)
+    if FAIL:
+        raise AssertionError(f"검수 실패 {len(FAIL)}건: {FAIL}")
+
+
+if __name__ == "__main__":
+    try:
+        run()
+    except AssertionError:
+        sys.exit(1)
+    sys.exit(0)

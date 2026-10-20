@@ -92,6 +92,23 @@ def multiseed_stage() -> dict:
                        f"e3p5_{key}_p": round(float(r["p"]), 5),
                        f"e3p5_{key}_delta_single_seed": round(float(single), 4)})
         out[key] = r
+    if len(rows) >= 2:
+        # 단일 seed Δ가 전부 음수였다가 전부 0 근처로 모인다면, 원인은 각 변형이
+        # 아니라 **기준 seed 하나**다. 그 몫을 직접 계산한다.
+        d_single = np.array([r[7] for r in rows])
+        d_multi = np.array([r[3] for r in rows])
+        bias = base[0].mean() - base.mean()
+        print(f"\n단일 seed Δ 평균 {d_single.mean():+.3f}°  →  "
+              f"seed 평균 Δ 평균 {d_multi.mean():+.3f}°  (이동량 {d_multi.mean() - d_single.mean():+.3f}°)")
+        print(f"기준으로 쓴 seed 0은 7개 seed 평균보다 {bias:+.3f}° 나쁘다 "
+              f"(7개 중 {sorted(base.mean(1), reverse=True).index(base[0].mean()) + 1}번째로 나쁜 쪽).")
+        print(f"  → 이동량 {d_multi.mean() - d_single.mean():+.3f}°의 "
+              f"{abs(bias) / abs(d_multi.mean() - d_single.mean()) * 100:.0f}%가 그 한 가지로 설명된다. "
+              f"변형이 좋아 보였던 게 아니라 기준이 운이 나빴던 것이다.")
+        put_numbers(e3p5_delta_single_mean=round(float(d_single.mean()), 4),
+                    e3p5_delta_multi_mean=round(float(d_multi.mean()), 4),
+                    e3p5_base_seed0_bias=round(float(bias), 4))
+
     if rows:
         save_table("e3_ablation_multiseed",
                    ["item", "n_seeds", "mean_deg", "delta_seedmean", "se", "p",

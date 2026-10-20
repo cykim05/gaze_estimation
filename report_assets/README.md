@@ -55,6 +55,7 @@ report_assets/
 | `final_results` | 최종 결과 표 (baseline·이전 실행·최종 모델 단일/ensemble) | `analysis/final_table.py` |
 | `e2_ensemble` | (a) 단일 (b) epoch-ens (c) seed-ens (d) 둘 다 | `analysis/e2_ensemble.py` |
 | `e3_ablation` | 항목 · EDA의 예측 · Δ±SE · p · 일치 여부 · 흡수 여부 | `analysis/e3_ablation.py` |
+| `e3_ablation_multiseed` | **P5** — seed 평균끼리 다시 본 Δ와 단일 seed Δ를 같은 줄에 | `analysis/e3_ablation.py` |
 | `a1_person_offset_runB` | 사람별 offset과 fold 오차 | `analysis/a1_offset.py` |
 | `a2_calibration_runB` | few-shot calibration 곡선 [진단용] | `analysis/a2_calibration.py` |
 | `a3_slopes_runB`, `a3_gaze_size_runB` | 회귀 기울기와 gaze 크기별 오차 | `analysis/a3_dilution.py` |

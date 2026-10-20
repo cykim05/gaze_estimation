@@ -41,7 +41,7 @@ STEPS = [
     ("a18", "ablation Δ ↔ seed 잡음", "analysis.a18_ablation_null", "run"),
     ("a19", "문헌 수치와의 비교 가능성", "analysis.a19_literature_anchor", "run"),
     ("final", "최종 결과 표", "analysis.final_table", "run"),
-    ("verify", "검수", "analysis.verify", None),
+    ("verify", "검수", "analysis.verify", "run"),
 ]
 
 
