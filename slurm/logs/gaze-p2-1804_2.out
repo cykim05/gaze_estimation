@@ -1,0 +1,52 @@
+노드 hai-iclr · GPU 0 · 작업 1804_2
+이름 ab_narrow · 인자     --seed 0 --conv-channels 16 32 64 --hidden 128 --joint 64
+0, 14 MiB, 46068 MiB
+fold 15개 · worker 2개 · GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 44.0/44.4 GiB)
+Config(epochs=20, batch_size=128, lr=0.002, lr_final_ratio=0.02, dropout=0.5, weight_decay=0.0, augment=False, warmup_epochs=0.0, loss='mse', kernel=3, n_pools=None, use_head=True, pixel_norm=False, norm='batch', mixup=0.0, ema=0.0, adv=0.0, dro=0.0, conv_channels=(16, 32, 64), hidden=128, joint=64, n_val_persons=2, seed=0)
+fold별 진행 상황: results/ab_narrow/logs/pXX.log
+fold별 가중치·예측: results/ab_narrow/folds/pXX.npz
+
+GPU 여유: 0=44.0GiB
+동시 실행 가능 2개 < 후보 15개 — 나눠서 돈다.
+[gpu] 메모리 상한 13.3GiB (여유 43.5/44.4GiB)
+[gpu] 메모리 상한 13.3GiB (여유 43.1/44.4GiB)
+[p00] 3.915°  (best epoch 9, val 5.354°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.1/44.4GiB)
+[p02] 6.702°  (best epoch 1, val 5.956°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.1/44.4GiB)
+[p01] 5.071°  (best epoch 9, val 5.619°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p03] 5.674°  (best epoch 6, val 6.462°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p04] 7.189°  (best epoch 16, val 5.909°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p06] 5.623°  (best epoch 5, val 6.380°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p05] 6.490°  (best epoch 4, val 6.090°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p07] 6.419°  (best epoch 6, val 6.412°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p08] 6.170°  (best epoch 5, val 6.139°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p10] 6.004°  (best epoch 2, val 5.169°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p09] 7.573°  (best epoch 2, val 5.534°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p11] 5.893°  (best epoch 9, val 5.598°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p12] 5.559°  (best epoch 6, val 5.956°, 2.4분)
+[gpu] 메모리 상한 13.3GiB (여유 40.0/44.4GiB)
+[p14] 6.421°  (best epoch 12, val 4.371°, 2.4분)
+[p13] 6.296°  (best epoch 7, val 4.916°, 1.2분)
+
+전체 17.9분
+
+| 방법 | p00 | p01 | p02 | p03 | p04 | p05 | p06 | p07 | p08 | p09 | p10 | p11 | p12 | p13 | p14 | 평균 |
+|------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|
+| GazeNet (numpy) | 3.91 | 5.07 | 6.70 | 5.67 | 7.19 | 6.49 | 5.62 | 6.42 | 6.17 | 7.57 | 6.00 | 5.89 | 5.56 | 6.30 | 6.42 | **6.07** |
+
+mean 6.067°  std 0.844°  min 3.91° (p00)  max 7.57° (p09)
+→ results/ab_narrow/predictions.npz
+
+→ results/ab_narrow/lopo.json
+→ results/ab_narrow/curves.png

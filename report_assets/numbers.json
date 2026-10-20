@@ -154,49 +154,53 @@
   "e2_K_selection_val": [
     [
       1,
-      5.348
+      5.3577
     ],
     [
       2,
-      5.3412
+      5.3477
     ],
     [
       3,
-      5.3487
+      5.3526
     ],
     [
       5,
-      5.3474
+      5.3547
     ],
     [
       8,
-      5.3348
+      5.3437
     ]
   ],
-  "e2_single_mean": 5.9749,
-  "e2_epoch_ens_mean": 5.8785,
-  "e2_seed_ens_mean": 5.7762,
-  "e2_both_mean": 5.7172,
-  "e2_n_seeds": 4,
+  "e2_single_mean": 5.9567,
+  "e2_epoch_ens_mean": 5.8774,
+  "e2_seed_ens_mean": 5.7384,
+  "e2_both_mean": 5.6951,
+  "e2_n_seeds": 6,
   "e2_seed_run_means": [
     6.1211,
     5.9526,
+    5.8974,
     5.9084,
-    5.9173
+    5.9173,
+    5.9432
   ],
   "e3_absorbed": "풀링 3회 → 2회",
-  "final_single_mean": 5.9749,
+  "final_single_mean": 5.9567,
   "final_single_seed_means": [
     6.1211,
     5.9526,
+    5.8974,
     5.9084,
-    5.9173
+    5.9173,
+    5.9432
   ],
-  "final_n_seeds": 4,
-  "final_vs_ridge_baseline_delta": -1.2958,
-  "final_vs_ridge_baseline_p": 1.213e-05,
-  "final_vs_하한선_delta": -3.2391,
-  "final_vs_하한선_p": 1.638e-09,
+  "final_n_seeds": 6,
+  "final_vs_ridge_baseline_delta": -1.314,
+  "final_vs_ridge_baseline_p": 8.838e-06,
+  "final_vs_하한선_delta": -3.2573,
+  "final_vs_하한선_p": 1.396e-09,
   "a15_offset_seed_corr_yaw": 0.9098,
   "a15_offset_seed_corr_pitch": 0.954,
   "a15_yaw_shared_frac": 0.9513,
@@ -239,12 +243,12 @@
   "e3_ab_l1_p": 0.40754,
   "e3_ab_l1_median_delta": -0.0939,
   "e3_ab_l1_median_p": 0.23216,
-  "a18_n_base_seeds": 4,
-  "a18_null_abs_delta_median": 0.1063,
-  "a18_null_abs_delta_max": 0.2127,
-  "a18_null_signif_pairs": 0,
-  "a18_null_n_pairs": 6,
-  "a18_base_seed_sd": 0.0993,
+  "a18_n_base_seeds": 6,
+  "a18_null_abs_delta_median": 0.0442,
+  "a18_null_abs_delta_max": 0.2236,
+  "a18_null_signif_pairs": 1,
+  "a18_null_n_pairs": 15,
+  "a18_base_seed_sd": 0.0832,
   "e3_ab_k5_mean": 6.0613,
   "e3_ab_k5_delta": -0.0598,
   "e3_ab_k5_se": 0.104,
@@ -258,7 +262,7 @@
   "e3_ab_pool2_median_delta": -0.2719,
   "e3_ab_pool2_median_p": 0.01847,
   "e3_absorbed_delta": -0.2504,
-  "final_seed_ens_mean": 5.7762,
-  "final_seed_ens_delta": -0.1987,
+  "final_seed_ens_mean": 5.7384,
+  "final_seed_ens_delta": -0.2182,
   "final_seed_ens_p": 0.0
 }

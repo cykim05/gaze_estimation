@@ -65,8 +65,9 @@ def run():
     print(f"\n같은 설정 · 다른 seed 쌍 {len(null_d)}개 (경험적 귀무)")
     print(f"  |Δ| 중앙값 {np.median(np.abs(null_d)):.3f}°, "
           f"최대 {np.abs(null_d).max():.3f}°")
-    print(f"  p < 0.05로 '유의'하게 나온 쌍: {int((null_p < 0.05).sum())}/{len(null_p)}  "
-          f"← 같은 설정인데도 이만큼 유의가 나온다")
+    n_sig, n_pair = int((null_p < 0.05).sum()), len(null_p)
+    print(f"  p < 0.05로 '유의'하게 나온 쌍: {n_sig}/{n_pair} "
+          f"(귀무에서 기대되는 수 {0.05 * n_pair:.2f}개)")
 
     base_mean = np.mean([seeds[k] for k in names], axis=0)
     print(f"\n기준 seed별 평균: " + ", ".join(f"{k}={seeds[k].mean():.3f}" for k in names))
@@ -118,9 +119,14 @@ def run():
              {"item": [r[0] for r in rows], "delta": [r[2] for r in rows],
               "se": [r[3] for r in rows]})
 
-    print(f"\n결론: 같은 설정끼리도 |Δ|가 최대 {np.abs(null_d).max():.3f}°까지 나고, "
-          f"{int((null_p<0.05).sum())}/{len(null_p)} 쌍이 p<0.05로 '유의'하게 나온다. "
-          "단일 seed ablation의 Δ는 이 폭 안에서 읽어야 한다.")
+    max_ab = max(abs(r[2]) for r in rows)
+    print(f"\n결론: 설정을 하나도 바꾸지 않고 seed만 바꿔도 15-fold 평균이 최대 "
+          f"{np.abs(null_d).max():.3f}° 흔들린다. ablation 8개의 Δ(seed 평균 기준)는 "
+          f"최대 {max_ab:.3f}°로 모두 그 폭 안에 있다 — 즉 이 중 어느 변형도 "
+          "seed 잡음과 구분되지 않는다.")
+    print(f"  유의 판정 쌍 {n_sig}/{n_pair}은 귀무 기대치 {0.05 * n_pair:.2f}개와 "
+          "다르지 않다. 즉 대응표본 t 자체가 망가진 것이 아니라, 단일 seed 쌍 비교는 "
+          "애초에 seed 효과를 '처리 효과'로 집계한다는 뜻이다.")
 
 
 if __name__ == "__main__":
