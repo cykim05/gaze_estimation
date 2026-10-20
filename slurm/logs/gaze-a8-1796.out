@@ -1,0 +1,19 @@
+노드 hai-iclr · GPU 0 · 작업 1796
+GPU 0 NVIDIA L40S (cupy 14.2.0, 여유 44.0/44.4 GiB)
+  p00: 기준 4.121°  head0 -0.033  head섞기 -0.009  probe 0.927
+  p01: 기준 4.821°  head0 +0.094  head섞기 +0.086  probe 0.927
+  p02: 기준 5.897°  head0 -0.031  head섞기 +0.012  probe 0.946
+  p03: 기준 6.005°  head0 -0.010  head섞기 -0.007  probe 0.952
+  p04: 기준 7.083°  head0 +0.002  head섞기 +0.094  probe 0.931
+  p05: 기준 5.916°  head0 -0.002  head섞기 -0.029  probe 0.942
+  p06: 기준 5.765°  head0 -0.026  head섞기 +0.065  probe 0.957
+  p07: 기준 6.548°  head0 -0.041  head섞기 -0.014  probe 0.960
+  p08: 기준 6.448°  head0 +0.031  head섞기 +0.065  probe 0.946
+  p09: 기준 7.271°  head0 +0.002  head섞기 +0.076  probe 0.936
+  p10: 기준 7.310°  head0 +0.077  head섞기 +0.089  probe 0.952
+  p11: 기준 6.388°  head0 -0.460  head섞기 +0.163  probe 0.929
+  p12: 기준 5.584°  head0 +0.031  head섞기 +0.077  probe 0.929
+  p13: 기준 6.741°  head0 +0.067  head섞기 +0.086  probe 0.948
+  p14: 기준 6.130°  head0 -0.053  head섞기 -0.034  probe 0.928
+
+→ results/p1_seed0/interpret.npz

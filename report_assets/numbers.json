@@ -118,5 +118,31 @@
   "runB_a13_pitch_scene_frac": 0.389,
   "runB_a13_pitch_indep_frac": 0.213,
   "runB_a13_one_eye": 6.3033,
-  "runB_a13_two_eye": 5.5403
+  "runB_a13_two_eye": 5.5403,
+  "runB_a14_density_err_r": -0.2401,
+  "runB_a14_gazesize_err_r": 0.2407,
+  "runB_a14_gaze_effect_within_density": 0.565,
+  "runB_a14_bins_positive": 5,
+  "p1s0_sel_val_chosen": 6.1211,
+  "p1s0_sel_last_epoch": 5.8877,
+  "p1s0_sel_oracle_epoch": 5.4602,
+  "p1s0_sel_val_test_spearman_median": 0.0752,
+  "p1s0_epoch_ens_K": 2,
+  "p1s0_epoch_ens_mean": 5.8741,
+  "p1s0_epoch_ens_delta_vs_valsel": -0.247,
+  "p1s0_epoch_ens_p": 0.00547,
+  "p1s0_epoch_ens_by_K": {
+    "1": 5.8877,
+    "2": 5.8741,
+    "3": 5.8838,
+    "5": 5.8897,
+    "8": 5.8888
+  },
+  "a8_person_probe_acc": 0.9404,
+  "a8_person_probe_chance": 0.0833,
+  "a8_occl_max_rise": 0.7289,
+  "a8_occl_max_row": 18.0,
+  "a8_occl_max_col": 21.0,
+  "a8_head_zero_rise": -0.0234,
+  "a8_head_shuffle_rise": 0.048
 }
