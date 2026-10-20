@@ -7,8 +7,15 @@ GPU를 쓰지 않는다. results/ 아래 저장된 npz·json만 읽는다.
 """
 from __future__ import annotations
 
+import os
 import sys
 import traceback
+
+# `python analysis/run_all.py`로 직접 실행해도 되게 레포 루트를 경로에 넣는다
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+os.chdir(ROOT)
 
 STEPS = [
     ("check", "결과 정합성 검사", "analysis.check_consistency", None),
@@ -31,6 +38,7 @@ STEPS = [
     ("e2", "ensemble 표", "analysis.e2_ensemble", "run"),
     ("e3", "ablation 표", "analysis.e3_ablation", "run"),
     ("final", "최종 결과 표", "analysis.final_table", "run"),
+    ("verify", "검수", "analysis.verify", None),
 ]
 
 

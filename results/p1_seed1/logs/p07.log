@@ -12,3 +12,11 @@
 [p07] epoch 11/20  loss 0.0885  val 6.742°  test 6.475°  (2.1분)
 [p07] epoch 12/20  loss 0.0802  val 6.726°  test 6.443°  (2.3분)
 [p07] epoch 13/20  loss 0.0749  val 6.859°  test 6.469°  (2.5분)
+[p07] epoch 14/20  loss 0.0704  val 6.832°  test 6.414°  (2.7분)
+[p07] epoch 15/20  loss 0.0663  val 6.665°  test 6.368°  (2.9분)
+[p07] epoch 16/20  loss 0.0638  val 6.699°  test 6.359°  (3.1분)
+[p07] epoch 17/20  loss 0.0605  val 6.798°  test 6.547°  (3.3분)
+[p07] epoch 18/20  loss 0.0582  val 6.705°  test 6.361°  (3.5분)
+[p07] epoch 19/20  loss 0.0564  val 6.894°  test 6.683°  (3.7분)
+[p07] epoch 20/20  loss 0.0556  val 6.803°  test 6.622°  (3.9분)
+[p07] 완료: epoch 10 선택 → 테스트 6.186°

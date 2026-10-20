@@ -74,7 +74,7 @@
   "runB_gaze_heatmap_min": 4.7447,
   "runB_gaze_heatmap_max": 12.5527,
   "a7_run_rank_spearman_median": 0.9214,
-  "a7_n_runs_compared": 2,
+  "a7_n_runs_compared": 3,
   "a7_offset_vs_folderr_runB_r": 0.6701,
   "runB_a10_disagree_vs_offset_yaw_r": 0.9957,
   "runB_a10_disagree_vs_offset_yaw_p": 0.0,
@@ -149,5 +149,46 @@
   "runB_a16_disagree_err_spearman": -0.0379,
   "runB_a16_err_drop20_signal": 5.5622,
   "runB_a16_err_drop20_random": 5.5398,
-  "runB_a16_err_drop20_oracle": 4.4816
+  "runB_a16_err_drop20_oracle": 4.4816,
+  "e2_epoch_ensemble_K": 2,
+  "e2_K_selection_val": [
+    [
+      1,
+      5.4483
+    ],
+    [
+      2,
+      5.4176
+    ],
+    [
+      3,
+      5.4344
+    ],
+    [
+      5,
+      5.4447
+    ],
+    [
+      8,
+      5.4461
+    ]
+  ],
+  "e2_single_mean": 6.1211,
+  "e2_epoch_ens_mean": 5.8741,
+  "e2_seed_ens_mean": 6.1211,
+  "e2_both_mean": 5.8741,
+  "e2_n_seeds": 1,
+  "e2_seed_run_means": [
+    6.1211
+  ],
+  "e3_absorbed": null,
+  "final_single_mean": 6.1211,
+  "final_single_seed_means": [
+    6.1211
+  ],
+  "final_n_seeds": 1,
+  "final_vs_ridge_baseline_delta": -1.1496,
+  "final_vs_ridge_baseline_p": 0.0001872,
+  "final_vs_하한선_delta": -3.0929,
+  "final_vs_하한선_p": 1.432e-08
 }
