@@ -38,6 +38,7 @@ STEPS = [
     ("a17", "offset ↔ 눈 생김새 [진단용]", "analysis.a17_appearance", "run"),
     ("e2", "ensemble 표", "analysis.e2_ensemble", "run"),
     ("e3", "ablation 표", "analysis.e3_ablation", "run"),
+    ("a18", "ablation Δ ↔ seed 잡음", "analysis.a18_ablation_null", "run"),
     ("final", "최종 결과 표", "analysis.final_table", "run"),
     ("verify", "검수", "analysis.verify", None),
 ]

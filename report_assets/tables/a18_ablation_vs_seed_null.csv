@@ -1,0 +1,5 @@
+item,delta_vs_seed0,delta_vs_seed_mean,se,p,percentile_in_null,verdict
+head pose 제거,-0.1764,-0.0921,0.0983,0.3647,0.0,seed 잡음 범위
+픽셀별 정규화,-0.2034,-0.1192,0.0903,0.20832,0.0,seed 잡음 범위
+angular 손실,-0.1155,-0.0313,0.1008,0.76073,0.0,seed 잡음 범위
+L1 손실,-0.0677,0.0165,0.1087,0.88129,0.0,seed 잡음 범위
