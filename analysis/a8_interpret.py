@@ -65,9 +65,18 @@ def run(run_dir=None):
                ["person_fold", "base_err_deg", "head_zero_rise_deg", "head_shuffle_rise_deg"],
                [[r[0], float(r[1]), float(r[2]), float(r[3])] for r in head_rows])
 
-    fig, axes = plt.subplots(1, 3, figsize=(11, 3.0))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.1))
+    fig.subplots_adjust(wspace=0.45)
     im = axes[0].imshow(m, cmap="magma", extent=[0, W, H, 0], aspect="auto")
-    fig.colorbar(im, ax=axes[0], label="가렸을 때 오차 상승 (°)")
+    cb = fig.colorbar(im, ax=axes[0], fraction=0.046, pad=0.03)
+    cb.set_label("가렸을 때 오차 상승 (°)", fontsize=7)
+    # EDA가 픽셀 표준편차만으로 찍은 자리와, 정규화가 맞춰 둔 눈 중심
+    axes[0].plot(19, 17, "o", mfc="none", mec="#4fd1c5", ms=11, mew=1.6)
+    axes[0].annotate("EDA 예측 (17,19)", (19, 17), color="#4fd1c5", fontsize=6.5,
+                     xytext=(8, -12), textcoords="offset points")
+    axes[0].plot(30, 18, "x", color="#9ad0ff", ms=8, mew=1.6)
+    axes[0].annotate("눈 중심(동공)", (30, 18), color="#9ad0ff", fontsize=6.5,
+                     xytext=(6, 10), textcoords="offset points")
     axes[0].set(xlabel="이미지 열 (픽셀)", ylabel="이미지 행 (픽셀)")
     axes[0].grid(False)
 
@@ -75,7 +84,8 @@ def run(run_dir=None):
     axes[1].bar(x - w / 2, hr[:, 1], w, label="head pose = 0", color="#1f4e79")
     axes[1].bar(x + w / 2, hr[:, 2], w, label="head pose 섞기", color="#8aa0b8")
     axes[1].set_xticks(x, [r[0] for r in head_rows], rotation=90, fontsize=6)
-    axes[1].set(ylabel="오차 상승 (°)")
+    axes[1].axhline(0, lw=0.7, c="k")
+    axes[1].set(ylabel="head pose를 망가뜨렸을 때\n오차 상승 (°)")
     axes[1].legend(fontsize=6)
 
     if len(probe_rows):

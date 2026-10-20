@@ -16,3 +16,7 @@
 [p01] epoch 15/20  loss 0.0790  val 6.062°  test 4.969°  (2.9분)
 [p01] epoch 16/20  loss 0.0747  val 6.135°  test 5.085°  (3.1분)
 [p01] epoch 17/20  loss 0.0721  val 5.918°  test 5.024°  (3.3분)
+[p01] epoch 18/20  loss 0.0682  val 6.050°  test 5.021°  (3.5분)
+[p01] epoch 19/20  loss 0.0679  val 6.055°  test 5.098°  (3.7분)
+[p01] epoch 20/20  loss 0.0664  val 5.905°  test 5.135°  (3.9분)
+[p01] 완료: epoch 7 선택 → 테스트 4.693°

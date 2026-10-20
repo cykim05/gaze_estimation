@@ -190,5 +190,15 @@
   "final_vs_ridge_baseline_delta": -1.1496,
   "final_vs_ridge_baseline_p": 0.0001872,
   "final_vs_하한선_delta": -3.0929,
-  "final_vs_하한선_p": 1.432e-08
+  "final_vs_하한선_p": 1.432e-08,
+  "a15_offset_seed_corr_yaw": 0.9098,
+  "a15_offset_seed_corr_pitch": 0.954,
+  "a15_yaw_shared_frac": 0.9513,
+  "a15_yaw_seedvar_frac": 0.0487,
+  "a15_pitch_shared_frac": 0.9563,
+  "a15_pitch_seedvar_frac": 0.0437,
+  "a15_single_mean": 6.0369,
+  "a15_ens_mean": 5.8993,
+  "a15_ens_delta": -0.1375,
+  "a15_ens_p": 0.0
 }
