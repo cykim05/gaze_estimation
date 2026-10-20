@@ -123,10 +123,13 @@ def check_findings_traceable():
     잘못 읽혀 들어오는 것을 잡는다. 실제로 이 검사가 들어오자마자 `final_test_error`
     (마지막 epoch)를 `test_error`(검증으로 고른 epoch) 자리에 적어 둔 값 1건을 찾았다.
     """
-    print("\n7. FINDINGS 수치 추적 가능성")
-    txt = open("report_assets/FINDINGS.md", encoding="utf-8").read()
-    claims = sorted({m.group(1) for m in re.finditer(r"(\d+\.\d{2,4})\s*°", txt)},
-                    key=float)
+    print("\n7. 수치 추적 가능성 (FINDINGS.md + PAPER.md)")
+    docs = ["report_assets/FINDINGS.md", "report_assets/PAPER.md"]
+    claims = sorted({(os.path.basename(d), m.group(1))
+                     for d in docs if os.path.exists(d)
+                     for m in re.finditer(r"(\d+\.\d{2,4})\s*°",
+                                          open(d, encoding="utf-8").read())},
+                    key=lambda c: float(c[1]))
 
     pool = set()
 
@@ -155,9 +158,9 @@ def check_findings_traceable():
         return x.rstrip("0").rstrip(".")
 
     have = {norm(x) for x in pool}
-    miss = [c for c in claims if norm(c) not in have]
+    miss = [f"{d}:{c}" for d, c in claims if norm(c) not in have]
     print(f"  '…°' 값 {len(claims)}개 중 산출물에서 확인 {len(claims) - len(miss)}개")
-    ok(not miss, f"산출물에 없는 FINDINGS 수치: {miss}")
+    ok(not miss, f"산출물에 없는 수치: {miss}")
 
 
 def check_gpu_limit():

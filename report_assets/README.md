@@ -5,11 +5,27 @@
 
 ```
 report_assets/
-├── FINDINGS.md     핵심 문서. 질문 단위로 묶은 발견
+├── PAPER.md        ← 여기서 시작. 보고서에 들어갈 것만 그림·표 번호까지 붙여 정리
+├── FINDINGS.md     실험 노트 전문. PAPER.md의 모든 주장에 대한 근거·검증 기록
 ├── numbers.json    본문에 인용될 모든 수치 (키-값)
+├── data/           집계하지 않은 long format 원자료 51,555행 (아래 표)
 ├── figures/        PNG 300dpi + 같은 이름의 .csv (그림의 원자료)
 └── tables/         각 표의 .csv와 .md
 ```
+
+**본문을 쓸 때는 `PAPER.md` 하나만 보면 된다.** `FINDINGS.md`는 거기서 어떤 수치가
+어떻게 나왔는지 되짚을 때, `data/`는 새로운 각도로 다시 자를 때 쓴다.
+
+## data/ — 다시 자를 수 있는 원자료
+
+| 파일 | 행 | 내용 |
+|---|---|---|
+| `data/runs.csv` | 315 | 실행 × fold (21 실행 × 15 fold). 검증으로 고른 epoch의 테스트 오차·마지막 epoch 오차·검증 오차·학습 시간 + 설정 15열 |
+| `data/epochs.csv` | 6,225 | 실행 × fold × epoch. train_loss / val_error / test_error — 학습 곡선 전부 |
+| `data/samples_final.csv.gz` | 45,000 | 최종 실행의 샘플별 잔차 + 사람·눈·day·frame·head pose·눈–카메라 거리 |
+| `data/persons.csv` | 15 | 사람 단위 종합 (gaze 통계·7 seed 오차·치우침·좌우눈 불일치) |
+
+전부 `analysis/pack_data.py`가 만든다. 집계·검정은 하지 않았다 — 쓰는 쪽에서 한다.
 
 ## 읽는 규칙
 

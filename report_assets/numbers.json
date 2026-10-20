@@ -323,5 +323,9 @@
   "a20_model_k": 0.006444,
   "a20_se_floor": 0.02869,
   "a20_mde_floor": 0.0864,
-  "a20_asym_mde_3_seeds": 0.188
+  "a20_asym_mde_3_seeds": 0.188,
+  "pack_rows_runs": 315,
+  "pack_rows_epochs": 6225,
+  "pack_rows_samples": 45000,
+  "pack_rows_persons": 15
 }

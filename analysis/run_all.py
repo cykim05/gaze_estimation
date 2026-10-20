@@ -42,6 +42,7 @@ STEPS = [
     ("a19", "문헌 수치와의 비교 가능성", "analysis.a19_literature_anchor", "run"),
     ("a20", "ablation 판정에 필요한 seed 수", "analysis.a20_power", "run"),
     ("final", "최종 결과 표", "analysis.final_table", "run"),
+    ("pack", "데이터 팩", "analysis.pack_data", "run"),
     ("verify", "검수", "analysis.verify", "run"),
 ]
 
