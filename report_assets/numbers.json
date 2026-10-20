@@ -98,5 +98,25 @@
     "300": 5.2524,
     "1000": 5.2441,
     "3000": 5.2395
-  }
+  },
+  "runB_a12_splithalf_yaw_r": 0.9662,
+  "runB_a12_splithalf_yaw_reliability": 0.9828,
+  "runB_a12_splithalf_pitch_r": 0.992,
+  "runB_a12_splithalf_pitch_reliability": 0.996,
+  "runB_a12_lr_offset_yaw_r": -0.1259,
+  "runB_a12_lr_offset_yaw_sign_match": 10,
+  "runB_a12_lr_offset_pitch_r": 0.9735,
+  "runB_a12_lr_offset_pitch_sign_match": 14,
+  "runB_a13_yaw_total_var": 29.9109,
+  "runB_a13_yaw_shared_frac": 0.3135,
+  "runB_a13_yaw_person_frac": 0.1808,
+  "runB_a13_yaw_scene_frac": 0.1327,
+  "runB_a13_yaw_indep_frac": 0.6865,
+  "runB_a13_pitch_total_var": 20.034,
+  "runB_a13_pitch_shared_frac": 0.787,
+  "runB_a13_pitch_person_frac": 0.398,
+  "runB_a13_pitch_scene_frac": 0.389,
+  "runB_a13_pitch_indep_frac": 0.213,
+  "runB_a13_one_eye": 6.3033,
+  "runB_a13_two_eye": 5.5403
 }

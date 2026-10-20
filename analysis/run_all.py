@@ -22,6 +22,8 @@ STEPS = [
     ("a9", "처리량·효율", "analysis.a9_efficiency", "run"),
     ("a10", "라벨 없는 신호", "analysis.a10_labelfree", "run"),
     ("a11", "라벨 0장 재중심화 [진단용]", "analysis.a11_zeroshot", "run"),
+    ("a12", "offset의 정체 [진단용]", "analysis.a12_offset_nature", "run"),
+    ("a13", "오차 분산 3층 분해 [진단용]", "analysis.a13_noisefloor", "run"),
     ("a8", "해석 (occlusion·probe)", "analysis.a8_interpret", "run"),
     ("e2", "ensemble 표", "analysis.e2_ensemble", "run"),
     ("e3", "ablation 표", "analysis.e3_ablation", "run"),
