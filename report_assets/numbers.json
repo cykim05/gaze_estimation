@@ -150,36 +150,37 @@
   "runB_a16_err_drop20_signal": 5.5622,
   "runB_a16_err_drop20_random": 5.5398,
   "runB_a16_err_drop20_oracle": 4.4816,
-  "e2_epoch_ensemble_K": 2,
+  "e2_epoch_ensemble_K": 8,
   "e2_K_selection_val": [
     [
       1,
-      5.4483
+      5.414
     ],
     [
       2,
-      5.4176
+      5.3928
     ],
     [
       3,
-      5.4344
+      5.3968
     ],
     [
       5,
-      5.4447
+      5.4026
     ],
     [
       8,
-      5.4461
+      5.389
     ]
   ],
-  "e2_single_mean": 6.1211,
-  "e2_epoch_ens_mean": 5.8741,
-  "e2_seed_ens_mean": 6.1211,
-  "e2_both_mean": 5.8741,
-  "e2_n_seeds": 1,
+  "e2_single_mean": 6.0369,
+  "e2_epoch_ens_mean": 5.8845,
+  "e2_seed_ens_mean": 5.8993,
+  "e2_both_mean": 5.7754,
+  "e2_n_seeds": 2,
   "e2_seed_run_means": [
-    6.1211
+    6.1211,
+    5.9526
   ],
   "e3_absorbed": null,
   "final_single_mean": 6.1211,
@@ -208,5 +209,11 @@
   "runB_a17_loo_pitch_r": -0.4267,
   "runB_a17_loo_pitch_p": 0.11272,
   "runB_a17_loo_pitch_rmse": 4.5782,
-  "runB_a17_loo_pitch_rmse_base": 2.7077
+  "runB_a17_loo_pitch_rmse_base": 2.7077,
+  "e3_ab_nohead_mean": 5.9447,
+  "e3_ab_nohead_delta": -0.1764,
+  "e3_ab_nohead_se": 0.0994,
+  "e3_ab_nohead_p": 0.09791,
+  "e3_ab_nohead_median_delta": -0.2061,
+  "e3_ab_nohead_median_p": 0.07586
 }
