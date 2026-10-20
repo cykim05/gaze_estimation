@@ -33,6 +33,8 @@ BASE_GLOB = ["results/p1_seed*", "results/p4_seed*"]
 def fold_err(run_dir):
     if not os.path.exists(os.path.join(run_dir, "lopo.json")):
         return None
+    if len(glob.glob(os.path.join(run_dir, "folds", "*.npz"))) < len(PERSONS):
+        return None   # 아직 돌고 있는 실행
     load_run(run_dir)
     f = load_folds(run_dir, keys=["pred", "gaze"])
     if len(f) < len(PERSONS):

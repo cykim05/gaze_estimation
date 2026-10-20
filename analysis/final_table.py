@@ -37,12 +37,12 @@ def run():
             rows.append([label] + [round(float(x), 3) for x in v]
                         + [round(float(v.mean()), 3)])
 
-    seeds = sorted(glob.glob("results/p1_seed*"))
-    seed_errs = []
-    for sd in seeds:
+    # 아직 돌고 있는 실행은 lopo.json이 없다. 완주한 것만 쓴다.
+    seeds, seed_errs = [], []
+    for sd in sorted(glob.glob("results/p1_seed*")) + sorted(glob.glob("results/p4_seed*")):
         v = json_folds(os.path.join(sd, "lopo.json"))
         if v is not None:
-            seed_errs.append(v)
+            seeds.append(sd); seed_errs.append(v)
     if seed_errs:
         A = np.array(seed_errs)
         mean_single = A.mean(0)

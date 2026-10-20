@@ -67,9 +67,12 @@ def fold_err(pred: dict, gaze: dict) -> np.ndarray:
     return np.array([angular_error(pred[p], gaze[p]).mean() for p in PERSONS])
 
 
-def run(pattern="results/p1_seed*"):
+def run(pattern=("results/p1_seed*", "results/p4_seed*")):
     section("E2 — ensemble")
-    run_dirs = sorted(d for d in glob.glob(pattern) if os.path.exists(f"{d}/lopo.json"))
+    pats = (pattern,) if isinstance(pattern, str) else pattern
+    run_dirs = sorted(d for pat in pats for d in glob.glob(pat)
+                      if os.path.exists(f"{d}/lopo.json")
+                      and len(glob.glob(f"{d}/folds/*.npz")) >= len(PERSONS))
     print(f"실행 {len(run_dirs)}개: {[os.path.basename(d) for d in run_dirs]}")
     if not run_dirs:
         print("  P1 결과가 아직 없다.")
