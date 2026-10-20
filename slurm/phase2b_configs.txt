@@ -1,0 +1,6 @@
+# Phase 2b. 1794 배열이 끝난 뒤 제출한다.
+p1_seed2      --seed 2
+ab_dropout02  --seed 0 --dropout 0.2
+ab_narrow     --seed 0 --conv-channels 16 32 64 --hidden 128 --joint 64
+p4_seed5      --seed 5
+p4_seed6      --seed 6

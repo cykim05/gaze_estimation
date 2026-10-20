@@ -144,5 +144,10 @@
   "a8_occl_max_row": 18.0,
   "a8_occl_max_col": 21.0,
   "a8_head_zero_rise": -0.0234,
-  "a8_head_shuffle_rise": 0.048
+  "a8_head_shuffle_rise": 0.048,
+  "runB_a16_disagree_err_pearson": -0.0314,
+  "runB_a16_disagree_err_spearman": -0.0379,
+  "runB_a16_err_drop20_signal": 5.5622,
+  "runB_a16_err_drop20_random": 5.5398,
+  "runB_a16_err_drop20_oracle": 4.4816
 }

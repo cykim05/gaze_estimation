@@ -559,6 +559,10 @@ def main() -> None:
     p.add_argument("--no-head", action="store_true", help="head pose 입력 제거 (ablation)")
     p.add_argument("--pixel-norm", action="store_true", help="픽셀별 이미지 정규화 (ablation)")
     p.add_argument("--seed", type=int, default=Config.seed)
+    p.add_argument("--conv-channels", type=int, nargs="*", default=None,
+                   help="conv 블록별 채널 수 (ablation)")
+    p.add_argument("--hidden", type=int, default=Config.hidden)
+    p.add_argument("--joint", type=int, default=Config.joint)
     p.add_argument("--epochs", type=int, default=Config.epochs)
     p.add_argument("--batch-size", type=int, default=Config.batch_size)
     p.add_argument("--lr", type=float, default=Config.lr)
@@ -585,7 +589,9 @@ def main() -> None:
                  warmup_epochs=args.warmup_epochs, loss=args.loss,
                  kernel=args.kernel, n_pools=args.n_pools,
                  use_head=not args.no_head, pixel_norm=args.pixel_norm,
-                 seed=args.seed)
+                 seed=args.seed, hidden=args.hidden, joint=args.joint,
+                 conv_channels=(tuple(args.conv_channels) if args.conv_channels
+                                else Config.conv_channels))
     jobs = min(args.jobs, len(args.folds))
 
     from common.backend import describe
