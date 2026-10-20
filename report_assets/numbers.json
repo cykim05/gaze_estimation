@@ -200,5 +200,13 @@
   "a15_single_mean": 6.0369,
   "a15_ens_mean": 5.8993,
   "a15_ens_delta": -0.1375,
-  "a15_ens_p": 0.0
+  "a15_ens_p": 0.0,
+  "runB_a17_loo_yaw_r": 0.0078,
+  "runB_a17_loo_yaw_p": 0.97793,
+  "runB_a17_loo_yaw_rmse": 2.9646,
+  "runB_a17_loo_yaw_rmse_base": 2.3934,
+  "runB_a17_loo_pitch_r": -0.4267,
+  "runB_a17_loo_pitch_p": 0.11272,
+  "runB_a17_loo_pitch_rmse": 4.5782,
+  "runB_a17_loo_pitch_rmse_base": 2.7077
 }
