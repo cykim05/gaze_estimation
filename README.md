@@ -153,10 +153,19 @@ conda install -c conda-forge jupyter matplotlib # for visualization and Eda
 | 평균 gaze 예측 (하한선) | 9.21° |
 | ridge 회귀 ([baseline_linear.py](baseline_linear.py)) | 7.27° |
 | PCA 24성분 + 선형 회귀 | 7.22° |
-| **GazeNet (numpy / cupy)** | **6.06° · 6.12°** |
+| GazeNet 단일 모델 (seed 7개 평균) | 5.94° |
+| **GazeNet + seed·epoch ensemble** | **5.68°** |
 
-두 수치는 서로 다른 설정의 두 실행이고 통계적으로 구분되지 않는다(대응표본 t = 0.99).
-하나를 골라 적지 않은 이유는 [SOLUTION.md 8절](SOLUTION.md#8-설정-탐색-그리고-그것이-틀렸음을-알게-된-과정)에 있다.
+단일 모델의 seed 간 표준편차가 0.095°(7개 실행, 5.81~6.12°)다. 한 번의 실행을 성능으로
+적으면 그 폭이 그대로 들어오므로 seed 평균으로 적었다. 제출 시점에 적었던 6.06°·6.12°는
+그 7개 중 두 실행이고, 왜 하나를 골라 적지 않았는지는
+[SOLUTION.md 8절](SOLUTION.md#8-설정-탐색-그리고-그것이-틀렸음을-알게-된-과정)에 있다.
+ensemble의 이득은 Δ −0.251° ± 0.047 (15 fold 대응표본, p=1.1×10⁻⁴)이다.
+
+제출 이후 같은 코드로 사전 등록 기반 실험·분석을 더 돌렸다. 그림 22개, 표 36개와
+집계하지 않은 원자료 51,555행이 [report_assets/](report_assets/)에 있고, 정리는
+[report_assets/PAPER.md](report_assets/PAPER.md)에 있다.
+`python analysis/run_all.py` 한 번으로 전부 다시 만들어진다(GPU 불필요).
 
 **보고서에서 눈여겨볼 곳**
 
@@ -165,11 +174,17 @@ conda install -c conda-forge jupyter matplotlib # for visualization and Eda
 - [5절](SOLUTION.md#5-numpy에서-gpu까지--같은-계층-코드로) — numpy CNN의 병목은
   conv가 아니라 단일 스레드 원소별 연산이었다. 계층 코드를 한 줄도 바꾸지 않고
   cupy로 옮겨 50배.
-- [7절](SOLUTION.md#7-오차-분석) — 모델이 예측을 평균 쪽으로 수축시킨다(정답 1°당
-  yaw 0.64°). EDA에서 세운 가설 하나는 확인되지 않았고 그대로 적었다.
+- [7절](SOLUTION.md#7-오차-분석) — 오차 분석. 여기 적은 "모델이 예측을 평균 쪽으로
+  수축시킨다"(정답 1°당 yaw 0.64°)는 **해석이 틀렸다.** 잡음만으로 예측되는 감쇠비가
+  0.707/0.590으로 관측 기울기(0.636/0.502)와 거의 같고, fold 안에서 회귀 방향을 바꾸면
+  기울기 중앙값이 1.10/1.05다. 모델의 성향이 아니라 regression dilution이다.
+  EDA에서 세운 가설 하나는 확인되지 않았고 그대로 적었다.
 - [8절](SOLUTION.md#8-설정-탐색-그리고-그것이-틀렸음을-알게-된-과정) — 설정 탐색의
   측정 오차를 재 보니 0.132°였고, 그동안 줄 세우던 차이와 같은 크기였다.
   하필 모든 탐색이 쓴 seed가 이상치였다. 다시 재고 더 단순한 답에 도달했다.
+  이 절에서 시작된 후속 작업이 [report_assets/](report_assets/)다 — 같은 설정에서 seed만
+  바꾼 쌍으로 귀무 분포를 만들어 보니 \|Δ\| 최대가 0.313°였고, 설계 변경 8종의 Δ가 전부
+  그 안에 들어갔다. 흡수한 변형은 없다.
 - [9절](SOLUTION.md#9-최신-일반화-기법은-도움이-되었는가) — GroupNorm, 적대 학습,
   mixup, EMA, GroupDRO를 직접 구현해 넣었다. 어느 것도 유의한 개선을 주지 못했다.
 
@@ -180,4 +195,5 @@ python -m tests.test_backend             # CPU와 GPU가 같은 계산을 하는
 python eda.py                            # 과제 2
 python train.py --epochs 20 --dropout 0.5 --device gpu --out results/final
 python analyze.py                        # 오차 분석
+python analysis/run_all.py               # 후속 분석 전체 재생성 + 검수
 ```
