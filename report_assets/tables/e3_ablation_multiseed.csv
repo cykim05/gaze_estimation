@@ -1,0 +1,2 @@
+item,n_seeds,mean_deg,delta_seedmean,se,p,wilcoxon_p,delta_single_seed,verdict
+풀링 3회 → 2회,3,5.9179,-0.0176,0.0597,0.77301,0.89038,-0.2504,구분 불가

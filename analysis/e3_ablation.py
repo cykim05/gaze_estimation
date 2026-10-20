@@ -23,6 +23,17 @@ PREDICTION = {
 }
 BASE = "results/p1_seed0"
 
+# P5 (PREREG 4·5절) — "기준 대비 0.15° 이상 차이 난 항목에 seed 1~2개 추가".
+# 단일 seed 비교는 seed 효과를 처리 효과로 집계한다(A18). 여기서는 **seed 평균끼리**
+# 짝을 맞춰 다시 본다. 흡수 여부는 P5가 돌아간 항목에 대해서는 이 표로 정한다.
+SEED_RUNS = {
+    "base":       ["p1_seed0", "p1_seed1", "p1_seed2",
+                   "p4_seed3", "p4_seed4", "p4_seed5", "p4_seed6"],
+    "ab_pool2":   ["ab_pool2", "ab_pool2_s1", "ab_pool2_s2"],
+    "ab_pixnorm": ["ab_pixnorm", "ab_pixnorm_s1"],
+    "ab_nohead":  ["ab_nohead", "ab_nohead_s1"],
+}
+
 
 def fold_errors(run_dir: str) -> tuple[np.ndarray, np.ndarray] | None:
     if not os.path.exists(os.path.join(run_dir, "lopo.json")):
@@ -36,6 +47,58 @@ def fold_errors(run_dir: str) -> tuple[np.ndarray, np.ndarray] | None:
     med = np.array([np.median(angular_error(folds[p]["pred"], folds[p]["gaze"]))
                     for p in PERSONS])
     return errs, med
+
+
+def seed_mean_errors(runs: list[str]) -> np.ndarray | None:
+    """여러 seed 실행의 fold별 오차를 쌓아 (seed, 15) 행렬로."""
+    got = [fold_errors(f"results/{r}")[0] for r in runs
+           if fold_errors(f"results/{r}") is not None]
+    return np.array(got) if got else None
+
+
+def multiseed_stage() -> dict:
+    """P5: seed 평균끼리 다시 비교한다. 반환 = {key: paired 결과}."""
+    base = seed_mean_errors(SEED_RUNS["base"])
+    if base is None or len(base) < 2:
+        print("\nP5: 기준 seed가 2개 미만이다. 건너뛴다.")
+        return {}
+    print(f"\n{'-' * 76}\nP5 (PREREG 4·5절) — seed 평균끼리 다시 비교")
+    print(f"기준 seed {len(base)}개, 평균 {base.mean():.3f}°, "
+          f"seed 간 SD {base.mean(1).std(ddof=1):.3f}°")
+    print(f"\n{'항목':<18}{'seed':>5}{'평균':>8}{'Δ(seed 평균)':>14}{'SE':>8}{'p':>9}"
+          f"{'Δ(seed0 단독)':>15}  판정")
+    out, rows = {}, []
+    for key, runs in SEED_RUNS.items():
+        if key == "base":
+            continue
+        var = seed_mean_errors(runs)
+        if var is None or len(var) < 2:
+            print(f"{PREDICTION[key][0]:<18}{0 if var is None else len(var):>5}"
+                  f"  (seed 부족 — 단일 seed 결과를 그대로 둔다)")
+            continue
+        r = paired(var.mean(0), base.mean(0))
+        single = var[0].mean() - base[0].mean()
+        v = verdict(r["delta"], r["p"])
+        print(f"{PREDICTION[key][0]:<18}{len(var):>5}{var.mean():>8.3f}"
+              f"{r['delta']:>+14.3f}{r['se']:>8.3f}{r['p']:>9.4f}{single:>+15.3f}  {v}")
+        rows.append([PREDICTION[key][0], len(var), round(float(var.mean()), 4),
+                     round(float(r["delta"]), 4), round(float(r["se"]), 4),
+                     round(float(r["p"]), 5), round(float(r["wilcoxon_p"]), 5),
+                     round(float(single), 4), v])
+        put_numbers(**{f"e3p5_{key}_n_seeds": len(var),
+                       f"e3p5_{key}_mean": round(float(var.mean()), 4),
+                       f"e3p5_{key}_delta": round(float(r["delta"]), 4),
+                       f"e3p5_{key}_se": round(float(r["se"]), 4),
+                       f"e3p5_{key}_p": round(float(r["p"]), 5),
+                       f"e3p5_{key}_delta_single_seed": round(float(single), 4)})
+        out[key] = r
+    if rows:
+        save_table("e3_ablation_multiseed",
+                   ["item", "n_seeds", "mean_deg", "delta_seedmean", "se", "p",
+                    "wilcoxon_p", "delta_single_seed", "verdict"], rows)
+        put_numbers(e3p5_base_n_seeds=len(base),
+                    e3p5_base_mean=round(float(base.mean()), 4))
+    return out
 
 
 def verdict(delta: float, p: float) -> str:
@@ -103,17 +166,46 @@ def run():
                ["item", "eda_prediction", "mean_deg", "delta_vs_base", "se", "p",
                 "verdict", "prediction_matched", "absorbed"], rows)
 
-    print(f"\n흡수 기준(PREREG 5절): 15-fold 대응표본 양측 p < 0.05로 기준보다 우세")
-    if absorbed:
-        best = min(absorbed, key=lambda t: t[1]["delta"])
-        print(f"  → 흡수: {best[0]} (Δ {best[1]['delta']:+.3f}°, p={best[1]['p']:.4f})")
-        if len(absorbed) > 1:
-            print(f"  → 나머지 {len(absorbed)-1}개는 '추가 검증 필요'로 남긴다 "
+    p5 = multiseed_stage()
+
+    # ------------------------------------------------------------ 흡수 결정
+    print(f"\n{'-' * 76}\n흡수 기준(PREREG 5절): 15-fold 대응표본 양측 p < 0.05로 기준보다 우세.")
+    print("P5가 돌아간 항목은 **seed 평균끼리의 비교**로 정한다(단일 seed 비교는 A18이")
+    print("보인 대로 seed 효과를 처리 효과로 집계한다). 규칙은 실험 전에 적은 것이고,")
+    print("결과를 본 뒤 바꾸지 않았다.")
+
+    final, overturned = [], []
+    for label, r in absorbed:
+        key = next(k for k, v in PREDICTION.items() if v[0] == label)
+        if key in p5:
+            if p5[key]["p"] < 0.05 and p5[key]["delta"] < 0:
+                final.append((label, p5[key], f"P5 seed {len(SEED_RUNS[key])}개"))
+            else:
+                overturned.append((label, r, p5[key]))
+        else:
+            final.append((label, r, "단일 seed (P5 미적용)"))
+
+    for label, single, multi in overturned:
+        print(f"\n  [뒤집힘] {label}")
+        print(f"      단일 seed : Δ {single['delta']:+.3f}° ± {single['se']:.3f}, "
+              f"p={single['p']:.4f}  → 유의하게 개선")
+        print(f"      seed 평균 : Δ {multi['delta']:+.3f}° ± {multi['se']:.3f}, "
+              f"p={multi['p']:.4f}  → 구분 불가 "
+              f"(|Δ|가 {abs(single['delta']) / max(abs(multi['delta']), 1e-9):.0f}배 줄었다)")
+        print(f"      → 절대 규칙 3: 사전 기준 미만족 → 더 단순한 쪽(기준)을 유지한다.")
+
+    if final:
+        best = min(final, key=lambda t: t[1]["delta"])
+        print(f"\n  → 흡수: {best[0]} (Δ {best[1]['delta']:+.3f}°, p={best[1]['p']:.4f}, "
+              f"근거 {best[2]})")
+        if len(final) > 1:
+            print(f"  → 나머지 {len(final)-1}개는 '추가 검증 필요'로 남긴다 "
                   "(조합 효과를 측정하지 않았다)")
         put_numbers(e3_absorbed=best[0], e3_absorbed_delta=round(float(best[1]["delta"]), 4))
     else:
-        print("  → 기준을 넘은 변형이 없다. 더 단순한 쪽(기준 모델)을 유지한다.")
+        print("\n  → 기준을 넘은 변형이 없다. 더 단순한 쪽(기준 모델)을 유지한다.")
         put_numbers(e3_absorbed=None)
+    put_numbers(e3_overturned_by_p5=[o[0] for o in overturned])
 
     done = [r for r in rows if r[2] is not None]
     if done:

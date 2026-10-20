@@ -187,7 +187,7 @@
     5.9432,
     5.8078
   ],
-  "e3_absorbed": "풀링 3회 → 2회",
+  "e3_absorbed": null,
   "final_single_mean": 5.9354,
   "final_single_seed_means": [
     6.1211,
@@ -277,5 +277,16 @@
   "a19_paper_gazenet_deg": 5.4,
   "a19_paper_mnistnet_deg": 5.5,
   "a19_yaw_range_gap_deg": 0.246,
-  "a19_pitch_range_gap_deg": 0.877
+  "a19_pitch_range_gap_deg": 0.877,
+  "e3p5_ab_pool2_n_seeds": 3,
+  "e3p5_ab_pool2_mean": 5.9179,
+  "e3p5_ab_pool2_delta": -0.0176,
+  "e3p5_ab_pool2_se": 0.0597,
+  "e3p5_ab_pool2_p": 0.77301,
+  "e3p5_ab_pool2_delta_single_seed": -0.2504,
+  "e3p5_base_n_seeds": 7,
+  "e3p5_base_mean": 5.9354,
+  "e3_overturned_by_p5": [
+    "풀링 3회 → 2회"
+  ]
 }
