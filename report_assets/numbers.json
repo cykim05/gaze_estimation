@@ -215,5 +215,11 @@
   "e3_ab_nohead_se": 0.0994,
   "e3_ab_nohead_p": 0.09791,
   "e3_ab_nohead_median_delta": -0.2061,
-  "e3_ab_nohead_median_p": 0.07586
+  "e3_ab_nohead_median_p": 0.07586,
+  "e3_ab_pixnorm_mean": 5.9177,
+  "e3_ab_pixnorm_delta": -0.2034,
+  "e3_ab_pixnorm_se": 0.1123,
+  "e3_ab_pixnorm_p": 0.09156,
+  "e3_ab_pixnorm_median_delta": -0.2188,
+  "e3_ab_pixnorm_median_p": 0.12146
 }
